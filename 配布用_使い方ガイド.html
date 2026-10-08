@@ -62,10 +62,11 @@ h3 { font-size: 16px; font-weight: 700; }
   .tags { align-items: flex-start; text-align: left; }
   .name { font-size: 26px; }
 }
+/* 印刷：ブラウザが余白を付けても A4 の1枚に収まるよう、少し縮小して印刷する */
 @media print {
-  @page { size: A4; margin: 0; }
-  body { background: none; padding: 0; }
-  .sheet { box-shadow: none; width: 210mm; height: 297mm; max-width: none; overflow: hidden; }
+  @page { size: A4 portrait; margin: 8mm; }
+  html, body { background: none; padding: 0; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet { box-shadow: none; width: 794px; max-width: none; height: auto; margin: 0 auto; zoom: 0.88; break-inside: avoid; }
 }
 </style>
 
