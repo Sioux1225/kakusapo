@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.6';
+export const APP_VERSION = '0.1.7';
 
 const state = {
   receipts: [],
@@ -713,6 +713,10 @@ const actions = {
     v.hidden = false;
   },
   'close-viewer': () => { $('#viewer').hidden = true; },
+  'apply-update': () => {
+    if (state.draft && !window.confirm('入力中の内容は消えます。更新しますか？\n（先に保存してから更新するのがおすすめです）')) return;
+    location.reload();
+  },
   'export-backup': async () => {
     try {
       showOverlay('バックアップを作成しています', 0.5);
@@ -805,13 +809,27 @@ function bindEvents() {
   window.addEventListener('hashchange', render);
 }
 
+/* ---------- アップデートの確認と通知 ---------- */
+function setupUpdates() {
+  if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+  // 初めて開いたとき（まだ何も保存されていないとき）は通知しない
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) $('#update-banner').hidden = false;
+  });
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
+    const check = () => reg.update().catch(() => {});
+    // ホーム画面のアプリは閉じずに再開されることが多いので、画面に戻ってきたときにも確認する
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    setInterval(check, 30 * 60 * 1000);
+  }).catch(() => {});
+}
+
 async function start() {
   await reload();
   bindEvents();
   await render();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
+  setupUpdates();
 }
 
 start();

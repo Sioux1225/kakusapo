@@ -314,3 +314,16 @@ svg { flex: none; }
   max-width: calc(100% - 32px); padding: 12px 18px; border-radius: 14px; background: var(--ink); color: #FFFFFF;
   font-size: 14px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
 }
+
+/* アップデートの通知 */
+.update-banner {
+  position: fixed; z-index: 80; left: 50%; transform: translateX(-50%);
+  top: calc(12px + env(safe-area-inset-top, 0px)); width: calc(100% - 32px); max-width: 448px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 10px 10px 16px; border-radius: 14px; background: var(--ink); color: #FFFFFF;
+  font-size: 14px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+.update-banner button {
+  min-height: 44px; padding: 0 16px; border: none; border-radius: 10px; background: var(--orange); color: var(--on-orange);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
