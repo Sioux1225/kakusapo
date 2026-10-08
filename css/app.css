@@ -150,6 +150,7 @@ svg { flex: none; }
 }
 .badge.warn { border-color: transparent; background: var(--warn-bg); color: var(--warn); font-weight: 700; }
 
+.results { display: flex; flex-direction: column; gap: 16px; }
 .search {
   display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; background: var(--card);
   border: 1px solid var(--line); border-radius: 14px; color: var(--sub);

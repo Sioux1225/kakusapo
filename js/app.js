@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.5';
+export const APP_VERSION = '0.1.6';
 
 const state = {
   receipts: [],
@@ -174,14 +174,19 @@ function viewHome() {
 }
 
 /* ---------- 一覧 ---------- */
-function viewList() {
-  const q = state.listQuery.trim().toLowerCase();
+// 検索用に表記をそろえる（全角・半角、カタカナ・ひらがな、大文字・小文字の違いを無視）
+const searchKey = (s) => String(s || '').normalize('NFKC').toLowerCase()
+  .replace(/[\u30A1-\u30F6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+
+const monthLabel = (key) => (key === '日付なし' ? key : `${Number(key.slice(0, 4))}年${Number(key.slice(5, 7))}月`);
+
+// 一覧の結果部分だけ（検索中は入力欄を描き直さないため分けている）
+function listResults() {
+  const q = searchKey(state.listQuery.trim());
   let items = state.receipts;
   if (state.listFilter === 'pending') items = items.filter((r) => r.status !== 'confirmed');
   if (state.listMonth) items = items.filter((r) => ym(r.date) === state.listMonth);
-  if (q) items = items.filter((r) => `${r.vendor} ${r.amount} ${r.date} ${categoryName(r.category)} ${r.memo}`.toLowerCase().includes(q));
-
-  const months = [...new Set(state.receipts.map((r) => ym(r.date)).filter(Boolean))].sort().reverse();
+  if (q) items = items.filter((r) => searchKey(`${r.vendor} ${r.amount} ${num(r.amount)} ${r.date} ${categoryName(r.category)} ${r.memo}`).includes(q));
   const groups = [];
   for (const r of items) {
     const key = ym(r.date) || '日付なし';
@@ -189,8 +194,15 @@ function viewList() {
     if (!g) groups.push(g = { key, items: [] });
     g.items.push(r);
   }
-  const label = (key) => (key === '日付なし' ? key : `${Number(key.slice(0, 4))}年${Number(key.slice(5, 7))}月`);
+  return groups.length ? groups.map((g) => `<section class="section">
+      <div class="section-head"><h2>${monthLabel(g.key)}</h2><span class="muted">${yen(g.items.reduce((s, r) => s + businessAmount(r), 0))}</span></div>
+      <div class="card list">${g.items.map((r) => receiptRow(r, true)).join('')}</div>
+    </section>`).join('') : `<div class="card empty">${state.receipts.length ? '条件に合う領収書はありません' : 'まだ領収書がありません'}</div>`;
+}
 
+function viewList() {
+  const months = [...new Set(state.receipts.map((r) => ym(r.date)).filter(Boolean))].sort().reverse();
+  const label = monthLabel;
   return `<main class="screen">
     <header class="page-head">
       <h1>領収書一覧</h1>
@@ -201,10 +213,7 @@ function viewList() {
     </header>
     <label class="search">${svg(ICON.search, 18, 2)}<input type="search" data-action="list-query" value="${h(state.listQuery)}" placeholder="店名・金額で検索" aria-label="店名・金額で検索"></label>
     ${segmented('表示の切り替え', [['all', `すべて（${state.receipts.length}）`], ['pending', `未確認（${pending().length}）`]], state.listFilter, 'list-filter')}
-    ${groups.length ? groups.map((g) => `<section class="section">
-      <div class="section-head"><h2>${label(g.key)}</h2><span class="muted">${yen(g.items.reduce((s, r) => s + businessAmount(r), 0))}</span></div>
-      <div class="card list">${g.items.map((r) => receiptRow(r, true)).join('')}</div>
-    </section>`).join('') : `<div class="card empty">${state.receipts.length ? '条件に合う領収書はありません' : 'まだ領収書がありません'}</div>`}
+    <div id="list-results" class="results">${listResults()}</div>
   </main>
   <button type="button" class="fab" data-action="capture" aria-label="領収書を撮影">${svg(ICON.camera, 26, 2)}</button>
   ${nav('list')}`;
@@ -739,6 +748,12 @@ function toast(message) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
 }
 
+function updateListResults(value) {
+  state.listQuery = value;
+  const box = document.getElementById('list-results');
+  if (box) box.innerHTML = listResults();
+}
+
 function bindEvents() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
@@ -749,15 +764,11 @@ function bindEvents() {
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (el.dataset.field && el.dataset.field !== 'category') onFieldInput(el);
-    if (el.dataset.action === 'list-query') {
-      state.listQuery = el.value;
-      const pos = el.selectionStart;
-      state.scrollTop = false;
-      render();
-      const again = document.querySelector('[data-action="list-query"]');
-      again.focus();
-      again.setSelectionRange(pos, pos);
-    }
+    // 日本語の変換中（未確定）は待つ。確定したら結果の一覧だけを描き直す
+    if (el.dataset.action === 'list-query' && !e.isComposing) updateListResults(el.value);
+  });
+  document.addEventListener('compositionend', (e) => {
+    if (e.target.dataset && e.target.dataset.action === 'list-query') updateListResults(e.target.value);
   });
   document.addEventListener('change', async (e) => {
     const el = e.target;
