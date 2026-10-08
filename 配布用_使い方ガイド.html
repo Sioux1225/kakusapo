@@ -17,7 +17,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--desk); color: var(--ink); font-family: var(--font); padding-inline: 16px; padding-block: 24px; }
-.sheet { max-width: 794px; margin: 0 auto; background: var(--paper); padding: 40px 44px 30px; position: relative; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
+.sheet { max-width: 794px; margin: 0 auto; background: var(--paper); padding: 34px 44px 22px; position: relative; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
 .sheet::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 8px; background: var(--orange); }
 h1, h2, h3, p { margin: 0; }
 b { font-weight: 700; }
@@ -29,29 +29,31 @@ b { font-weight: 700; }
 .catch { font-size: 15px; font-weight: 600; }
 .tags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; color: var(--sub); text-align: right; }
 .pill { padding: 3px 10px; border: 1px solid var(--orange); border-radius: 999px; color: var(--orange-text); font-weight: 700; }
-.start { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; padding: 16px; border: 2px solid var(--orange); border-radius: 16px; }
+.start { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; padding: 12px 16px; border: 2px solid var(--orange); border-radius: 16px; }
 .qr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.qr svg { width: 164px; height: 164px; }
+.qr svg { width: 150px; height: 150px; }
 .qr span { font-size: 11px; color: var(--sub); text-align: center; word-break: break-all; }
 h2 { font-size: 18px; font-weight: 700; text-wrap: balance; }
-.steps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; font-size: 13px; line-height: 1.6; }
+.steps { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.5; }
 .steps li { display: flex; gap: 10px; }
 .num { width: 22px; height: 22px; flex: none; border-radius: 11px; background: var(--orange); color: var(--ink); font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-.note { font-size: 12px; color: var(--sub); margin-top: 6px; }
-.flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
-.card { padding: 12px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.note { font-size: 12px; color: var(--sub); margin-top: 4px; }
+.flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.card { padding: 10px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .card.often { background: var(--orange-tint); } .card.rare { background: var(--gray-tint); }
 .when { font-size: 12px; font-weight: 700; color: var(--orange-text); letter-spacing: .02em; }
 .card.rare .when { color: var(--sub); }
 h3 { font-size: 16px; font-weight: 700; }
-.card p { font-size: 12.5px; line-height: 1.65; }
+.card p { font-size: 12.5px; line-height: 1.55; }
 .tip { font-size: 12px !important; color: var(--sub); }
-.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.box { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.box { padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .box h2 { font-size: 15px; }
-.box p { font-size: 12.5px; line-height: 1.65; }
-.must { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.6; }
+.box p { font-size: 12.5px; line-height: 1.55; }
+.must { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 1.5; }
 .must b { color: var(--warn); }
+.lost { margin: 4px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
+.lost b { color: var(--ink); }
 .foot { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--sub); }
 .foot b { color: var(--ink); }
 @media (max-width: 640px) {
@@ -116,7 +118,12 @@ h3 { font-size: 16px; font-weight: 700; }
     <div class="box"><h2>大切な3つのこと</h2>
       <ul class="must">
         <li><b>1. 紙の領収書は捨てない。</b>撮影したあとも7年間保管してください。</li>
-        <li><b>2. 月に1回バックアップ。</b>データはスマホの中だけにあります。機種変更や故障に備えて、iCloud Drive や Google ドライブに保存を。</li>
+        <li><b>2. 月に1回バックアップ。</b>データはスマホの中だけにあり、次のときは消えてしまいます。設定からバックアップを iCloud Drive や Google ドライブに保存しておけば、元に戻せます。
+          <ul class="lost">
+            <li>ホーム画面から確サポの<b>アイコンを削除</b>したとき（一番多い原因です）</li>
+            <li>Safari の「<b>履歴とWebサイトデータを消去</b>」をしたとき</li>
+            <li><b>機種変更</b>・スマホの故障・紛失のとき</li>
+          </ul></li>
         <li><b>3. 青色申告は届出が必要。</b>青色申告をする年の3月15日まで（開業した年は開業から2か月以内）に「青色申告承認申請書」を税務署に出します。</li>
       </ul></div>
   </section>
