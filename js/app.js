@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.9';
+export const APP_VERSION = '0.1.10';
 
 const state = {
   receipts: [],
@@ -400,6 +400,47 @@ function viewForm() {
   </main>`;
 }
 
+/* ---------- 免責事項 ---------- */
+// 内容を変えたら TERMS_VERSION を上げる（利用者に改めて同意をお願いする）
+const TERMS_VERSION = 1;
+
+function termsList() {
+  return `<ol>
+          <li><b>申告の補助を目的としたアプリです。</b>確サポは、領収書の整理と確定申告の準備を補助するためのものであり、税務上の助言や申告の代行を行うものではありません。申告内容の最終的な確認と判断は、利用者ご自身の責任で行ってください。判断に迷う場合は、税務署や税理士にご相談ください。</li>
+          <li><b>内容の正確性は保証できません。</b>領収書の読み取り結果、勘定科目の提案、集計結果、申告書の記入欄の案内などは、正確であるよう努めていますが、誤りが含まれる可能性があります。必ずご自身で内容を確認してから確定・申告してください。</li>
+          <li><b>データの保管は利用者ご自身で行ってください。</b>データはお使いのスマホの中だけに保存され、提供者は内容を見ることも復元することもできません。スマホの故障・紛失・機種変更、ブラウザのデータ削除などでデータが失われても、提供者は責任を負いかねます。定期的にバックアップを保存してください。</li>
+          <li><b>領収書の原本は保管してください。</b>確サポの画像は、法令で定められた領収書の保存の代わりにはなりません。紙の領収書は定められた期間、大切に保管してください。</li>
+          <li><b>税制・様式の変更について。</b>税制や申告書の様式が変わった場合、アプリの対応が遅れたり、対応できなかったりすることがあります。</li>
+          <li><b>アプリの変更・停止について。</b>提供者は、予告なくアプリの内容を変更し、または提供を停止・終了することがあります。読み取り用プログラムの配信元など、外部のサービスの障害により一部の機能が使えなくなることもあります。</li>
+          <li><b>損害について。</b>確サポの利用または利用できなかったことにより生じた損害（追徴課税・加算税・延滞税などを含みます）について、提供者は、提供者に故意または重大な過失がある場合を除き、責任を負いません。</li>
+        </ol>`;
+}
+
+const termsAccepted = () => state.settings.termsVersion >= TERMS_VERSION;
+
+// 初めて開いたときの画面：免責事項に同意してから使い始める
+function viewTerms() {
+  return `<main class="screen welcome">
+    <header class="welcome-head">
+      ${LOGO(64)}
+      <h1 class="wordmark" aria-label="確定申告サポート"><span class="g">確定申告</span><span class="o">サポート</span></h1>
+      <p>領収書を撮るだけで、確定申告まで迷わない</p>
+    </header>
+    <section class="card pad small terms-full">
+      <h2>ご利用にあたって（免責事項）</h2>
+      <p class="muted">はじめに、以下の内容をご確認ください。</p>
+      ${termsList()}
+    </section>
+    <div class="card pad small">
+      <p class="muted">領収書の画像と内容はこのスマホの中で処理・保存され、外部には送信されません。</p>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn-primary" data-action="accept-terms">同意して始める</button>
+      <p class="muted small center">内容は、あとから「設定」→「このアプリについて」でも確認できます。</p>
+    </div>
+  </main>`;
+}
+
 /* ---------- 設定 ---------- */
 function viewSettings() {
   const s = state.settings;
@@ -444,15 +485,7 @@ function viewSettings() {
       </div>
       <details class="card pad small terms">
         <summary>ご利用にあたって（免責事項）</summary>
-        <ol>
-          <li><b>申告の補助を目的としたアプリです。</b>確サポは、領収書の整理と確定申告の準備を補助するためのものであり、税務上の助言や申告の代行を行うものではありません。申告内容の最終的な確認と判断は、利用者ご自身の責任で行ってください。判断に迷う場合は、税務署や税理士にご相談ください。</li>
-          <li><b>内容の正確性は保証できません。</b>領収書の読み取り結果、勘定科目の提案、集計結果、申告書の記入欄の案内などは、正確であるよう努めていますが、誤りが含まれる可能性があります。必ずご自身で内容を確認してから確定・申告してください。</li>
-          <li><b>データの保管は利用者ご自身で行ってください。</b>データはお使いのスマホの中だけに保存され、提供者は内容を見ることも復元することもできません。スマホの故障・紛失・機種変更、ブラウザのデータ削除などでデータが失われても、提供者は責任を負いかねます。定期的にバックアップを保存してください。</li>
-          <li><b>領収書の原本は保管してください。</b>確サポの画像は、法令で定められた領収書の保存の代わりにはなりません。紙の領収書は定められた期間、大切に保管してください。</li>
-          <li><b>税制・様式の変更について。</b>税制や申告書の様式が変わった場合、アプリの対応が遅れたり、対応できなかったりすることがあります。</li>
-          <li><b>アプリの変更・停止について。</b>提供者は、予告なくアプリの内容を変更し、または提供を停止・終了することがあります。読み取り用プログラムの配信元など、外部のサービスの障害により一部の機能が使えなくなることもあります。</li>
-          <li><b>損害について。</b>確サポの利用または利用できなかったことにより生じた損害（追徴課税・加算税・延滞税などを含みます）について、提供者は、提供者に故意または重大な過失がある場合を除き、責任を負いません。</li>
-        </ol>
+        ${termsList()}
         <p class="muted">確サポを利用された時点で、上記にご同意いただいたものとします。</p>
       </details>
       <button type="button" class="btn-text danger" data-action="clear-all">すべてのデータを削除</button>
@@ -468,6 +501,11 @@ function route() {
 }
 
 async function render() {
+  if (!termsAccepted()) {
+    app().innerHTML = viewTerms();
+    window.scrollTo(0, 0);
+    return;
+  }
   const { view, param, query } = route();
   if (view === 'list' && query === 'pending') state.listFilter = 'pending';
   if (view === 'edit' && (!state.draft || state.draft.id !== param)) {
@@ -726,6 +764,13 @@ const actions = {
     v.hidden = false;
   },
   'close-viewer': () => { $('#viewer').hidden = true; },
+  'accept-terms': async () => {
+    state.settings.termsVersion = TERMS_VERSION;
+    state.settings.termsAcceptedAt = new Date().toISOString();
+    await db.saveSettings(state.settings);
+    location.hash = '#/home';
+    render();
+  },
   'apply-update': () => {
     if (state.draft && !window.confirm('入力中の内容は消えます。更新しますか？\n（先に保存してから更新するのがおすすめです）')) return;
     location.reload();

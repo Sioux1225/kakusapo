@@ -45,7 +45,9 @@ export const DEFAULT_SETTINGS = {
   vendorMap: {},
   phoneMap: {},
   lastBackupAt: null,
-  installGuideDismissed: false
+  installGuideDismissed: false,
+  termsVersion: 0,
+  termsAcceptedAt: null
 };
 
 export const db = {

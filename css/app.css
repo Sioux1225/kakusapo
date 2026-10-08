@@ -288,6 +288,16 @@ svg { flex: none; }
 .terms ol { margin: 4px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; line-height: 1.65; color: var(--ink); }
 .terms b { display: block; }
 
+/* 初回の同意画面 */
+.welcome { padding-bottom: calc(32px + var(--safe-bottom)); }
+.welcome-head { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 16px 0 4px; }
+.welcome-head .wordmark { font-size: 28px; margin: 0; }
+.welcome-head p { font-size: 14px; color: var(--sub); }
+.terms-full h2 { font-size: 16px; }
+.terms-full ol { margin: 4px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; line-height: 1.7; }
+.terms-full b { display: block; }
+.center { text-align: center; }
+
 /* 読み取りの詳細（調査用） */
 .debug { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 10px 12px; background: var(--card); }
 .debug summary { font-size: 13px; color: var(--sub); cursor: pointer; min-height: 32px; display: flex; align-items: center; }
