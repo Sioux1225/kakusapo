@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, preprocess, toJpeg } from './ocr.
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.1.1';
 
 const state = {
   receipts: [],
@@ -132,7 +132,7 @@ function viewHome() {
 
   return `<main class="screen">
     <header class="home-head">
-      <div class="brand">${LOGO(40)}<span class="wordmark" aria-label="確サポ"><span class="g">確</span><span class="o">サポ</span></span></div>
+      <div class="brand">${LOGO(40)}<span class="wordmark" aria-label="確定申告サポート"><span class="g">確定申告</span><span class="o">サポート</span></span></div>
       <a class="icon-btn" href="#/settings" aria-label="設定">${svg(ICON.gear, 20)}</a>
     </header>
 
