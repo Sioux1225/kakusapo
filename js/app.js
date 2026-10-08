@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.10';
+export const APP_VERSION = '0.1.11';
 
 const state = {
   receipts: [],
@@ -318,6 +318,7 @@ function viewTax() {
       ${check(Boolean(s.lastBackupAt), s.lastBackupAt ? `バックアップ済み（${longDate(s.lastBackupAt.slice(0, 10))}）` : 'まだバックアップしていません', s.lastBackupAt ? '' : '#/settings')}
     </section>
     <div class="info">売上・減価償却・帳簿（仕訳帳・総勘定元帳）・作成コーナーへの転記ガイドは、次のアップデートで追加します。</div>
+    <div class="info">青色申告特別控除は <b>65万円</b> と <b>10万円</b> に対応します。2027年分から始まる <b>75万円控除</b> は、優良な電子帳簿などの条件があるため、このアプリでは受けられません。</div>
   </main>${nav('tax')}`;
 }
 
@@ -481,6 +482,7 @@ function viewSettings() {
       <div class="card pad small">
         <p>確サポ バージョン ${APP_VERSION}</p>
         <p class="muted">領収書の画像と内容はこのスマホの中で処理・保存され、外部には送信されません（読み取り用のプログラムと日本語データのみ、初回にダウンロードします）。</p>
+        <p class="muted">青色申告特別控除は65万円・10万円に対応しています。75万円控除（2027年分から）には対応していません。</p>
         <p class="muted">紙の領収書は捨てずに保管してください。申告内容の最終確認はご自身で行い、迷ったときは税務署の無料相談をご利用ください。</p>
       </div>
       <details class="card pad small terms">
