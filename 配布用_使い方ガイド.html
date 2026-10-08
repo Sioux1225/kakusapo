@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>確サポ 使い方ガイド</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;600;700&amp;family=M+PLUS+Rounded+1c:wght@800&amp;display=swap">
+<style>
+/* 配布用の紙1枚（A4）。印刷物として作るため、明るい配色に固定している */
+:root {
+  --paper: #FFFFFF; --desk: #EFEEEC; --ink: #262626; --sub: #595959; --line: #C9C6C1;
+  --orange: #F39801; --orange-text: #7A4500; --orange-tint: #FFF3E0; --gray-tint: #F4F3F1; --warn: #A3341F; --brand-gray: #7D7D7D;
+  --font: 'IBM Plex Sans JP', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  --round: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--desk); color: var(--ink); font-family: var(--font); padding-inline: 16px; padding-block: 24px; }
+.sheet { max-width: 794px; margin: 0 auto; background: var(--paper); padding: 40px 44px 30px; position: relative; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.12); }
+.sheet::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 8px; background: var(--orange); }
+h1, h2, h3, p { margin: 0; }
+b { font-weight: 700; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo { width: 56px; height: 56px; flex: none; }
+.name { font-family: var(--round); font-size: 30px; font-weight: 800; letter-spacing: .02em; line-height: 1.2; }
+.name .g { color: var(--brand-gray); } .name .o { color: #E08A00; } .name small { font-size: 17px; color: var(--sub); }
+.catch { font-size: 15px; font-weight: 600; }
+.tags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; color: var(--sub); text-align: right; }
+.pill { padding: 3px 10px; border: 1px solid var(--orange); border-radius: 999px; color: var(--orange-text); font-weight: 700; }
+.start { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; padding: 16px; border: 2px solid var(--orange); border-radius: 16px; }
+.qr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.qr svg { width: 164px; height: 164px; }
+.qr span { font-size: 11px; color: var(--sub); text-align: center; word-break: break-all; }
+h2 { font-size: 18px; font-weight: 700; text-wrap: balance; }
+.steps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; font-size: 13px; line-height: 1.6; }
+.steps li { display: flex; gap: 10px; }
+.num { width: 22px; height: 22px; flex: none; border-radius: 11px; background: var(--orange); color: var(--ink); font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.note { font-size: 12px; color: var(--sub); margin-top: 6px; }
+.flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.card { padding: 12px 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.card.often { background: var(--orange-tint); } .card.rare { background: var(--gray-tint); }
+.when { font-size: 12px; font-weight: 700; color: var(--orange-text); letter-spacing: .02em; }
+.card.rare .when { color: var(--sub); }
+h3 { font-size: 16px; font-weight: 700; }
+.card p { font-size: 12.5px; line-height: 1.65; }
+.tip { font-size: 12px !important; color: var(--sub); }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.box { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.box h2 { font-size: 15px; }
+.box p { font-size: 12.5px; line-height: 1.65; }
+.must { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.6; }
+.must b { color: var(--warn); }
+.foot { margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--sub); }
+.foot b { color: var(--ink); }
+@media (max-width: 640px) {
+  .sheet { padding: 32px 18px 24px; }
+  .start, .flow, .facts { grid-template-columns: minmax(0, 1fr); }
+  .tags { align-items: flex-start; text-align: left; }
+  .name { font-size: 26px; }
+}
+@media print {
+  @page { size: A4; margin: 0; }
+  body { background: none; padding: 0; }
+  .sheet { box-shadow: none; width: 210mm; height: 297mm; max-width: none; overflow: hidden; }
+}
+</style>
+
+</head>
+<body>
+<main class="sheet">
+  <header class="top">
+    <div class="brand"><svg class="logo" viewBox="0 0 160 160" aria-hidden="true"><rect x="2" y="2" width="156" height="156" rx="34" fill="#FFFFFF" stroke="#E6E6E6" stroke-width="4"/><path d="M46 28 H106 V122 L98.5 115 L91 122 L83.5 115 L76 122 L68.5 115 L61 122 L53.5 115 L46 122 Z" fill="none" stroke="#F39801" stroke-width="11" stroke-linejoin="round"/><circle cx="64" cy="58" r="7" fill="#7D7D7D"/><circle cx="88" cy="58" r="7" fill="#7D7D7D"/><path d="M62 79 Q76 93 90 79" fill="none" stroke="#7D7D7D" stroke-width="8" stroke-linecap="round"/><circle cx="118" cy="116" r="23" fill="#F39801" stroke="#FFFFFF" stroke-width="6"/><path d="M108 116 L115.5 123.5 L129 109" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><h1 class="name"><span class="g">確定申告</span><span class="o">サポート</span><small>（確サポ）</small></h1>
+        <p class="catch">領収書を撮るだけで、確定申告まで迷わない</p></div>
+    </div>
+    <div class="tags"><span class="pill">使い方ガイド</span><span>無料 ・ データはあなたのスマホの中だけ</span></div>
+  </header>
+
+  <section class="start" aria-labelledby="start-h">
+    <div class="qr">
+      <svg viewBox="-4 -4 37 37" role="img" aria-label="確サポを開くQRコード" shape-rendering="crispEdges"><rect x="-4" y="-4" width="37" height="37" fill="#FFFFFF"/><path d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM8 0h1v1h-1zM11 0h1v1h-1zM13 0h1v1h-1zM19 0h1v1h-1zM20 0h1v1h-1zM22 0h1v1h-1zM23 0h1v1h-1zM24 0h1v1h-1zM25 0h1v1h-1zM26 0h1v1h-1zM27 0h1v1h-1zM28 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM8 1h1v1h-1zM9 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM16 1h1v1h-1zM17 1h1v1h-1zM18 1h1v1h-1zM20 1h1v1h-1zM22 1h1v1h-1zM28 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM9 2h1v1h-1zM11 2h1v1h-1zM12 2h1v1h-1zM13 2h1v1h-1zM14 2h1v1h-1zM15 2h1v1h-1zM18 2h1v1h-1zM19 2h1v1h-1zM22 2h1v1h-1zM24 2h1v1h-1zM25 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM11 3h1v1h-1zM17 3h1v1h-1zM19 3h1v1h-1zM22 3h1v1h-1zM24 3h1v1h-1zM25 3h1v1h-1zM26 3h1v1h-1zM28 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM16 4h1v1h-1zM17 4h1v1h-1zM19 4h1v1h-1zM22 4h1v1h-1zM24 4h1v1h-1zM25 4h1v1h-1zM26 4h1v1h-1zM28 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM9 5h1v1h-1zM12 5h1v1h-1zM14 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM19 5h1v1h-1zM22 5h1v1h-1zM28 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM23 6h1v1h-1zM24 6h1v1h-1zM25 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM17 7h1v1h-1zM0 8h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM9 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM17 8h1v1h-1zM19 8h1v1h-1zM20 8h1v1h-1zM22 8h1v1h-1zM25 8h1v1h-1zM27 8h1v1h-1zM28 8h1v1h-1zM0 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM5 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM19 9h1v1h-1zM20 9h1v1h-1zM22 9h1v1h-1zM23 9h1v1h-1zM24 9h1v1h-1zM28 9h1v1h-1zM1 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM11 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM22 10h1v1h-1zM26 10h1v1h-1zM27 10h1v1h-1zM0 11h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM16 11h1v1h-1zM19 11h1v1h-1zM22 11h1v1h-1zM23 11h1v1h-1zM28 11h1v1h-1zM0 12h1v1h-1zM2 12h1v1h-1zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM15 12h1v1h-1zM17 12h1v1h-1zM19 12h1v1h-1zM21 12h1v1h-1zM23 12h1v1h-1zM25 12h1v1h-1zM26 12h1v1h-1zM0 13h1v1h-1zM1 13h1v1h-1zM3 13h1v1h-1zM5 13h1v1h-1zM9 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM19 13h1v1h-1zM21 13h1v1h-1zM22 13h1v1h-1zM26 13h1v1h-1zM27 13h1v1h-1zM28 13h1v1h-1zM0 14h1v1h-1zM1 14h1v1h-1zM2 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM14 14h1v1h-1zM19 14h1v1h-1zM20 14h1v1h-1zM22 14h1v1h-1zM23 14h1v1h-1zM24 14h1v1h-1zM26 14h1v1h-1zM27 14h1v1h-1zM28 14h1v1h-1zM0 15h1v1h-1zM1 15h1v1h-1zM2 15h1v1h-1zM3 15h1v1h-1zM4 15h1v1h-1zM7 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM19 15h1v1h-1zM20 15h1v1h-1zM23 15h1v1h-1zM27 15h1v1h-1zM2 16h1v1h-1zM3 16h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM16 16h1v1h-1zM18 16h1v1h-1zM20 16h1v1h-1zM23 16h1v1h-1zM24 16h1v1h-1zM25 16h1v1h-1zM27 16h1v1h-1zM1 17h1v1h-1zM2 17h1v1h-1zM4 17h1v1h-1zM5 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM13 17h1v1h-1zM15 17h1v1h-1zM17 17h1v1h-1zM20 17h1v1h-1zM21 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM26 17h1v1h-1zM27 17h1v1h-1zM0 18h1v1h-1zM3 18h1v1h-1zM4 18h1v1h-1zM5 18h1v1h-1zM6 18h1v1h-1zM7 18h1v1h-1zM8 18h1v1h-1zM10 18h1v1h-1zM12 18h1v1h-1zM15 18h1v1h-1zM16 18h1v1h-1zM17 18h1v1h-1zM21 18h1v1h-1zM23 18h1v1h-1zM24 18h1v1h-1zM26 18h1v1h-1zM4 19h1v1h-1zM8 19h1v1h-1zM9 19h1v1h-1zM10 19h1v1h-1zM11 19h1v1h-1zM12 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM22 19h1v1h-1zM23 19h1v1h-1zM24 19h1v1h-1zM26 19h1v1h-1zM1 20h1v1h-1zM2 20h1v1h-1zM3 20h1v1h-1zM4 20h1v1h-1zM6 20h1v1h-1zM7 20h1v1h-1zM8 20h1v1h-1zM10 20h1v1h-1zM12 20h1v1h-1zM13 20h1v1h-1zM17 20h1v1h-1zM20 20h1v1h-1zM21 20h1v1h-1zM22 20h1v1h-1zM23 20h1v1h-1zM24 20h1v1h-1zM25 20h1v1h-1zM26 20h1v1h-1zM8 21h1v1h-1zM9 21h1v1h-1zM11 21h1v1h-1zM12 21h1v1h-1zM13 21h1v1h-1zM14 21h1v1h-1zM16 21h1v1h-1zM17 21h1v1h-1zM18 21h1v1h-1zM20 21h1v1h-1zM24 21h1v1h-1zM25 21h1v1h-1zM26 21h1v1h-1zM27 21h1v1h-1zM28 21h1v1h-1zM0 22h1v1h-1zM1 22h1v1h-1zM2 22h1v1h-1zM3 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM8 22h1v1h-1zM9 22h1v1h-1zM10 22h1v1h-1zM11 22h1v1h-1zM12 22h1v1h-1zM13 22h1v1h-1zM16 22h1v1h-1zM18 22h1v1h-1zM19 22h1v1h-1zM20 22h1v1h-1zM22 22h1v1h-1zM24 22h1v1h-1zM25 22h1v1h-1zM27 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM8 23h1v1h-1zM9 23h1v1h-1zM15 23h1v1h-1zM16 23h1v1h-1zM18 23h1v1h-1zM19 23h1v1h-1zM20 23h1v1h-1zM24 23h1v1h-1zM25 23h1v1h-1zM27 23h1v1h-1zM28 23h1v1h-1zM0 24h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM6 24h1v1h-1zM9 24h1v1h-1zM14 24h1v1h-1zM17 24h1v1h-1zM20 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM23 24h1v1h-1zM24 24h1v1h-1zM26 24h1v1h-1zM0 25h1v1h-1zM2 25h1v1h-1zM3 25h1v1h-1zM4 25h1v1h-1zM6 25h1v1h-1zM8 25h1v1h-1zM10 25h1v1h-1zM13 25h1v1h-1zM14 25h1v1h-1zM15 25h1v1h-1zM16 25h1v1h-1zM19 25h1v1h-1zM20 25h1v1h-1zM23 25h1v1h-1zM24 25h1v1h-1zM25 25h1v1h-1zM28 25h1v1h-1zM0 26h1v1h-1zM2 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM11 26h1v1h-1zM12 26h1v1h-1zM14 26h1v1h-1zM17 26h1v1h-1zM21 26h1v1h-1zM23 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM9 27h1v1h-1zM11 27h1v1h-1zM12 27h1v1h-1zM13 27h1v1h-1zM14 27h1v1h-1zM15 27h1v1h-1zM19 27h1v1h-1zM20 27h1v1h-1zM21 27h1v1h-1zM23 27h1v1h-1zM25 27h1v1h-1zM27 27h1v1h-1zM0 28h1v1h-1zM1 28h1v1h-1zM2 28h1v1h-1zM3 28h1v1h-1zM4 28h1v1h-1zM5 28h1v1h-1zM6 28h1v1h-1zM8 28h1v1h-1zM9 28h1v1h-1zM10 28h1v1h-1zM11 28h1v1h-1zM13 28h1v1h-1zM18 28h1v1h-1zM20 28h1v1h-1zM22 28h1v1h-1zM23 28h1v1h-1zM25 28h1v1h-1zM27 28h1v1h-1z" fill="#1F1F1F"/></svg>
+      <span>sioux1225.github.io/kakusapo</span>
+    </div>
+    <div>
+      <h2 id="start-h">はじめに</h2>
+      <ol class="steps">
+        <li><span class="num">1</span><span>スマホのカメラで<b>左のQRコード</b>を読み取ります。</span></li>
+        <li><span class="num">2</span><span><b>iPhone</b>：Safari の下の共有ボタン →「<b>ホーム画面に追加</b>」<br><b>Android</b>：Chrome で「<b>アプリをインストール</b>」（またはメニュー →「ホーム画面に追加」）</span></li>
+        <li><span class="num">3</span><span>ホーム画面の「<b>確サポ</b>」を開き、注意事項を読んで「<b>同意して始める</b>」。<br>「設定」で<b>青色申告か白色申告か</b>を選びます。</span></li>
+      </ol>
+      <p class="note">※ 最初の1回だけ、読み取り用のデータを取り込むため Wi-Fi のある場所で開くのがおすすめです。</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="flow-h">
+    <h2 id="flow-h">使い方は、この4つだけ</h2>
+    <div class="flow">
+      <article class="card often"><span class="when">ふだん（お金を払ったその日に）</span><h3>① 領収書を撮影する</h3>
+        <p>ホームの「<b>領収書を撮影</b>」を押して撮るだけ。日付・金額・お店を自動で読み取ります。内容を確認して「<b>確定</b>」。ガソリン・高速代・駐車場・スマホ代なども忘れずに。</p>
+        <p class="tip">コツ：暗めの机に置き、画面いっぱいに真上から。</p></article>
+      <article class="card often"><span class="when">毎月（委託料が振り込まれたら）</span><h3>② 売上を入力する</h3>
+        <p>「申告」→「<b>売上を記録する</b>」。2か月目からは先月と同じ内容が入っているので、金額が違うときだけ直して保存。月に1回、設定から<b>バックアップ</b>も。</p></article>
+      <article class="card rare"><span class="when">ときどき（10万円以上の買い物をしたら）</span><h3>③ 車などを登録する</h3>
+        <p>車両やパソコンなど長く使うものは「申告」→「<b>減価償却を確認する</b>」で登録。質問に答えるだけで、毎年の経費を自動で計算します。</p></article>
+      <article class="card rare"><span class="when">年に1回（2月16日〜3月15日）</span><h3>④ 確定申告をする</h3>
+        <p>「申告」タブを<b>上から順に</b>進めます。最後に国税庁の「確定申告書等作成コーナー」へ金額を写し、<b>マイナンバーカードとスマホ</b>で e-Tax 送信して完了。</p></article>
+    </div>
+  </section>
+
+  <section class="facts">
+    <div class="box"><h2>確定申告ってなに？</h2>
+      <p>1月〜12月の1年間の「<b>売上</b>」から、仕事に使った「<b>経費</b>」を引いて「<b>もうけ（所得）</b>」を計算し、税務署に伝える手続きです。経費をきちんと記録するほど、もうけが小さくなり、<b>税金が安くなります</b>。</p>
+      <p><b>青色申告</b>にすると、もうけから最大 <b>65万円</b> を差し引けます（e-Tax で期限内に提出した場合）。帳簿や決算書は確サポが自動で作ります。</p></div>
+    <div class="box"><h2>大切な3つのこと</h2>
+      <ul class="must">
+        <li><b>1. 紙の領収書は捨てない。</b>撮影したあとも7年間保管してください。</li>
+        <li><b>2. 月に1回バックアップ。</b>データはスマホの中だけにあります。機種変更や故障に備えて、iCloud Drive や Google ドライブに保存を。</li>
+        <li><b>3. 青色申告は届出が必要。</b>青色申告をする年の3月15日まで（開業した年は開業から2か月以内）に「青色申告承認申請書」を税務署に出します。</li>
+      </ul></div>
+  </section>
+
+  <footer class="foot">
+    <span>税金の判断に迷ったら、税務署の無料相談もご利用ください。</span>
+  </footer>
+</main>
+</body>
+</html>
