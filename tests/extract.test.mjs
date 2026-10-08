@@ -145,6 +145,17 @@ test('金額の欠片（19）は合計にしない', () => {
   assert.equal(r.amount, 8619);
 });
 
+test('消費税額の読み取りが割れても、合計から計算した税額に合うものを選ぶ', () => {
+  const text = `外8% ¥638
+(税合計 \\\\638) | ¥38 ¥6381
+合計 ¥8,619`;
+  const r = extract(text, { today });
+  assert.equal(r.amount, 8619);
+  assert.equal(r.taxRate, '8');
+  assert.equal(r.taxAmount, 638);
+  assert.equal(r.conf.taxAmount, 'high');
+});
+
 test('読み違いの文字の羅列は店名にしない', () => {
   const r = extract('ーー 0N0逢\n山田商店\n合計 ¥500', { today });
   assert.equal(r.vendor, '山田商店');

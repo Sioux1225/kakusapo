@@ -155,32 +155,62 @@ function findTax(lines, total) {
   else if (has8) taxRate = '8';
 
   const valid = (v) => v > 0 && (!total || v <= total * 0.11 + 1);
-  // 1) 税の合計が書かれていればそれを使う
-  let taxTotal = null;
-  // 2) なければ税率ごとの税額を足す（例：8%対象 ¥150 内消費税 ¥11 ／ 10%対象 ¥220 内消費税 ¥20）
+  const afterKeyword = (line, re) => {
+    const k = line.search(re);
+    return k < 0 ? null : line.slice(k);
+  };
+  // 税の合計の行（税合計・外税計など）に出てきた数字。同じ行を何度か読み直しているので、回数を数える
+  const totalVotes = new Map();
+  // 税率ごとの税額（例：8%対象 ¥150 内消費税 ¥11 ／ 10%対象 ¥220 内消費税 ¥20）
   let sum = 0;
-  cleaned.forEach((cl, i) => {
-    if (TAX_TOTAL.test(cl)) {
-      const nums = parseNumbers(cl.slice(cl.search(TAX_TOTAL))).filter((n) => valid(n.value));
-      if (nums.length && taxTotal == null) taxTotal = nums[nums.length - 1].value;
+  const lineVotes = new Map();
+  lines.forEach((line, i) => {
+    const tt = afterKeyword(line, TAX_TOTAL);
+    if (tt != null) {
+      parseNumbers(tt).filter((n) => valid(n.value)).forEach((n) => totalVotes.set(n.value, (totalVotes.get(n.value) || 0) + 1));
       return;
     }
-    const k = cl.search(TAX_LINE);
-    if (k < 0) return;
-    const after = cl.slice(k);
+    const after = afterKeyword(line, TAX_LINE);
     // 「(外8% 対象 ¥7,981)」のような課税対象額の行は除く
-    if (/対象/.test(after)) return;
-    let nums = parseNumbers(after).filter((n) => n.value >= 1);
-    if (nums.length === 0 && lines[i + 1] && ONLY_NUMBER.test(lines[i + 1])) nums = parseNumbers(lines[i + 1]);
-    if (nums.length && valid(nums[nums.length - 1].value)) sum += nums[nums.length - 1].value;
+    if (after == null || /対象/.test(after)) return;
+    let nums = parseNumbers(after).filter((n) => valid(n.value));
+    if (nums.length === 0 && lines[i + 1] && ONLY_NUMBER.test(lines[i + 1])) nums = parseNumbers(lines[i + 1]).filter((n) => valid(n.value));
+    if (!nums.length) return;
+    nums.forEach((n) => lineVotes.set(n.value, (lineVotes.get(n.value) || 0) + 1));
+    sum += nums[nums.length - 1].value;
   });
-  let taxAmount = taxTotal != null ? taxTotal : sum || null;
-  if (taxAmount != null && !valid(taxAmount)) taxAmount = null;
+
+  // 税率が1つなら、合計金額から計算した税額（外税・内税どちらでもほぼ同じ）と照らし合わせる
+  // 例：8,619円 × 8/108 ＝ 638.4 → 638円
+  const rate = taxRate === '10' ? 10 : taxRate === '8' ? 8 : 0;
+  const expected = rate && total ? Math.floor((total * rate) / (100 + rate)) : null;
+  const votes = new Map([...lineVotes]);
+  for (const [v, c] of totalVotes) votes.set(v, (votes.get(v) || 0) + c + 1);
+  const ranked = [...votes.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+
+  let taxAmount = null;
+  let conf = 'none';
+  if (expected != null) {
+    const match = ranked.find(([v]) => Math.abs(v - expected) <= 1);
+    if (match) {
+      taxAmount = match[0];
+      conf = 'high';
+    } else if (ranked.length) {
+      taxAmount = ranked[0][0];
+      conf = 'low';
+    }
+  } else if (totalVotes.size) {
+    taxAmount = [...totalVotes.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+    conf = totalVotes.size === 1 ? 'high' : 'low';
+  } else if (sum && valid(sum)) {
+    taxAmount = sum;
+    conf = 'high';
+  }
   return {
     taxRate,
     taxRateConf: taxRate === 'unknown' ? 'none' : 'high',
     taxAmount,
-    taxAmountConf: taxAmount != null ? 'high' : 'none'
+    taxAmountConf: conf
   };
 }
 

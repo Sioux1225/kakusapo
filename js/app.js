@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.2';
+export const APP_VERSION = '0.1.3';
 
 const state = {
   receipts: [],
@@ -351,7 +351,7 @@ function viewForm() {
       ${field('支払先', 'vendor', `<input type="text" data-field="vendor" value="${h(d.vendor)}" placeholder="例：ENEOS 港北SS" autocomplete="off">`, conf('vendor'))}
       ${field('金額（税込）', 'amount', `<span class="yen-input"><input type="text" inputmode="numeric" data-field="amount" value="${d.amount ? num(d.amount) : ''}" placeholder="0"><span>円</span></span>`, conf('amount'))}
       ${field('税率', 'taxRate', `<select data-field="taxRate">${taxOptions.map(([v, l]) => `<option value="${v}"${d.taxRate === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`, 'high')}
-      ${field('消費税額', 'taxAmount', `<span class="yen-input"><input type="text" inputmode="numeric" data-field="taxAmount" value="${d.taxAmount ? num(d.taxAmount) : ''}" placeholder="わかれば"><span>円</span></span>`, 'high')}
+      ${field('消費税額', 'taxAmount', `<span class="yen-input"><input type="text" inputmode="numeric" data-field="taxAmount" value="${d.taxAmount ? num(d.taxAmount) : ''}" placeholder="わかれば"><span>円</span></span>`, d.taxAmount != null ? conf('taxAmount') : 'high')}
       ${field('インボイス登録番号', 'invoiceNo', `<span class="invoice-input"><input type="text" data-field="invoiceNo" value="${h(d.invoiceNo)}" placeholder="T＋13桁" autocapitalize="characters" autocomplete="off">${isValidInvoiceNo(d.invoiceNo) ? `<span class="ok-mark" aria-label="形式OK">${svg(ICON.check, 16, 2.6)}</span>` : ''}</span>`, 'high')}
     </div>
 
