@@ -245,13 +245,14 @@ function findDate(lines, today) {
 function findInvoice(lines) {
   for (const line of lines) {
     const cl = compact(line).replace(/[丁Тт]/g, 'T');
-    const m = cl.match(/登録番号[:：]?T?(\d{13})(?!\d)/) || cl.match(/T-?(\d{13})(?!\d)/);
+    // 「登録」や「T」が読み落とされても、「番号」の後の13桁なら登録番号とみなす
+    const m = cl.match(/番号[:：]?T?(\d{13})(?!\d)/) || cl.match(/T-?(\d{13})(?!\d)/);
     if (m) return { value: 'T' + m[1], conf: 'high' };
   }
   return { value: '', conf: 'none' };
 }
 
-const NOT_VENDOR = /(領収|レシート|RECEIPT|様|毎度|ありがと|いらっしゃいませ|〒|TEL|電話|FAX|http|www|登録番号|^[\d\s\-\/.:¥\\,()]+$)/i;
+const NOT_VENDOR = /(領収|レシート|RECEIPT|様|毎度|ありがと|いらっしゃいませ|〒|TEL|電話|FAX|http|www|番号|\d{6,}|^[\d\s\-\/.:¥\\,()]+$)/i;
 const ADDRESS = /(都|道|府|県).*(市|区|町|村)|(市|区)[^\s]*\d+-\d+/;
 
 export function cleanVendor(s) {

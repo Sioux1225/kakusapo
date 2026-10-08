@@ -156,6 +156,14 @@ test('消費税額の読み取りが割れても、合計から計算した税�
   assert.equal(r.conf.taxAmount, 'high');
 });
 
+test('「登録」や「T」を読み落としてもインボイス番号を拾い、店名にはしない', () => {
+  const r = extract('吸番号 1120901013120\n業務スーパー\n合計 ¥500', { today });
+  assert.equal(r.invoiceNo, 'T1120901013120');
+  assert.equal(r.vendor, '業務スーパー');
+  const r2 = extract('吸番号 1120901013120\n相武台店\n合計 ¥500', { today });
+  assert.equal(r2.vendor, '相武台店');
+});
+
 test('読み違いの文字の羅列は店名にしない', () => {
   const r = extract('ーー 0N0逢\n山田商店\n合計 ¥500', { today });
   assert.equal(r.vendor, '山田商店');

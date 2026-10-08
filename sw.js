@@ -1,6 +1,6 @@
 // オフラインでも開けるようにアプリのファイルを保存する。
 // アプリを更新したら VERSION を変えること（利用者は次回起動時に新しい版になる）。
-const VERSION = 'kakusapo-v0.1.3';
+const VERSION = 'kakusapo-v0.1.4';
 const RUNTIME = 'kakusapo-runtime';
 const SHELL = [
   './',

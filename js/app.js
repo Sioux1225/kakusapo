@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.3';
+export const APP_VERSION = '0.1.4';
 
 const state = {
   receipts: [],
@@ -148,6 +148,7 @@ function viewHome() {
     </section>
 
     <button type="button" class="btn-capture" data-action="capture">${svg(ICON.camera, 26, 2)}領収書を撮影</button>
+    <p class="capture-tip">きれいに読み取るコツ：<b>暗めの机の上</b>に置き、レシートが<b>画面いっぱい</b>になるように真上から撮影</p>
     <div class="sub-actions">
       <button type="button" class="btn-ghost" data-action="gallery">${svg(ICON.image, 18)}写真から選ぶ</button>
       <button type="button" class="btn-ghost" data-action="manual">${svg(ICON.pen, 18)}手入力</button>
@@ -343,7 +344,10 @@ function viewForm() {
 
     <div class="form-intro">
       ${d.imageUrl ? `<button type="button" class="thumb" data-action="open-image" aria-label="画像を拡大"><img src="${d.imageUrl}" alt=""></button>` : ''}
-      <p>${message}</p>
+      <div class="form-intro-text">
+        <p>${message}</p>
+        ${d.isNew && d.hasImage ? `<button type="button" class="btn-small ghost" data-action="retake">${svg(ICON.camera, 16, 2)}撮り直す</button>` : ''}
+      </div>
     </div>
 
     <div class="card fields">
@@ -537,6 +541,10 @@ async function nextInQueue() {
 function handleFiles(fileList) {
   const files = [...fileList].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
   if (!files.length) return;
+  if (state.retake) {
+    state.retake = false;
+    discardDraft();
+  }
   state.queue.push(...files);
   if (files.length > 1) toast(`${files.length}枚を順番に読み取ります`);
   if (!state.processing && !state.draft) nextInQueue();
@@ -651,6 +659,8 @@ function onFieldInput(el) {
 /* ---------- 操作 ---------- */
 const actions = {
   capture: () => { warmUp(); $('#camera-input').click(); },
+  // 撮り直し：新しい写真が選ばれた時点で今の下書きを捨てる（キャンセルした場合はそのまま）
+  retake: () => { state.retake = true; $('#camera-input').click(); },
   gallery: () => { warmUp(); $('#gallery-input').click(); },
   manual: () => { state.draft = baseDraft(); location.hash = '#/form'; },
   'list-filter': (el) => { state.listFilter = el.dataset.value; state.scrollTop = false; if (location.hash !== '#/list') location.hash = '#/list'; else render(); },
