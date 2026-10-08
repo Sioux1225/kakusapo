@@ -86,6 +86,7 @@ export async function importBackup(file) {
   const settings = await db.getSettings();
   if (data.settings) {
     settings.vendorMap = { ...(data.settings.vendorMap || {}), ...settings.vendorMap };
+    settings.phoneMap = { ...(data.settings.phoneMap || {}), ...settings.phoneMap };
     if (!settings.lastBackupAt) settings.lastBackupAt = data.exportedAt || null;
     await db.saveSettings(settings);
   }

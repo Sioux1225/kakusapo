@@ -43,6 +43,7 @@ export const DEFAULT_SETTINGS = {
   filingType: 'blue',
   ratios: Object.fromEntries(CATEGORIES.map((c) => [c.id, c.ratio])),
   vendorMap: {},
+  phoneMap: {},
   lastBackupAt: null,
   installGuideDismissed: false
 };
@@ -65,7 +66,8 @@ export const db = {
       ...DEFAULT_SETTINGS,
       ...(s || {}),
       ratios: { ...DEFAULT_SETTINGS.ratios, ...((s && s.ratios) || {}) },
-      vendorMap: { ...((s && s.vendorMap) || {}) }
+      vendorMap: { ...((s && s.vendorMap) || {}) },
+      phoneMap: { ...((s && s.phoneMap) || {}) }
     };
   },
   saveSettings: (s) => run('settings', 'readwrite', (tx) => tx.objectStore('settings').put(s, 'settings')),

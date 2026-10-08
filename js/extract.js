@@ -10,7 +10,8 @@ const KNOWN_VENDORS = [
   'オートバックス', 'AUTOBACS', 'イエローハット', 'ジェームス',
   'ドコモ', 'docomo', 'ソフトバンク', 'SoftBank', '楽天モバイル',
   'ヨドバシ', 'ビックカメラ', 'ケーズデンキ', 'Amazon', 'アマゾン', 'ドン・キホーテ',
-  'ウエルシア', 'マツモトキヨシ', 'スギ薬局', 'ツルハ', 'ヤマト運輸', '日本郵便', '郵便局'
+  'ウエルシア', 'マツモトキヨシ', 'スギ薬局', 'ツルハ', 'ヤマト運輸', '日本郵便', '郵便局',
+  '業務スーパー', 'イオン', 'まいばすけっと', '西友', 'イトーヨーカドー', 'コストコ', 'ドラッグストア'
 ];
 
 // 全角→半角などをそろえ、日本語の文字の間に入った余分なスペースを詰める
@@ -19,6 +20,7 @@ export function normalize(text) {
     .normalize('NFKC')
     .replace(/[‐‑‒–—―−]/g, '-')
     .replace(/[￥]/g, '¥')
+    .replace(/(\d)、(?=\d{3})/g, '$1,')
     .split('\n')
     .map((line) => line
       .replace(/([^\x00-\x7F])[ \t]+(?=[^\x00-\x7F])/g, '$1')
@@ -31,56 +33,108 @@ export function normalize(text) {
 
 const compact = (s) => s.replace(/\s+/g, '');
 
+// 「7,981」「7.981」「638」のような正しい形の金額か
+export function isMoneyToken(t) {
+  return /^\d{1,3}(?:[,.]\d{3})+$/.test(t) || /^\d{1,7}$/.test(t);
+}
+
 // 1行の中の金額らしい数字を取り出す（税率・時刻・日付は除外）
 export function parseNumbers(line) {
-  const cl = compact(line)
-    .replace(/\d{1,2}(?:\.\d)?%/g, ' ')
+  // スペースは数字の区切りとして残す（「2, 380」のような区切り直後のスペースだけ詰める）
+  const cl = String(line)
+    .replace(/(\d[,.])\s+(?=\d{3})/g, '$1')
+    .replace(/([¥\\])\s+(?=\d)/g, '$1')
+    .replace(/(\d)\s+(?=円)/g, '$1')
+    .replace(/\d{1,2}(?:\.\d)?\s?%/g, ' ')
     .replace(/\d{1,2}:\d{2}(?::\d{2})?/g, ' ')
     .replace(/(?:19|20)\d{2}[年\/.\-]\d{1,2}[月\/.\-]\d{1,2}日?/g, ' ');
   const out = [];
-  const re = /([¥\\])?(\d{1,3}(?:[,.]\d{3})+|\d{1,7})(円)?/g;
+  // 数字と区切り（, .）のかたまりごとに見る。「8.6139」のように区切り方がおかしいものは読み違いとして捨てる
+  const re = /([¥\\])?([\d][\d,.]*)(円)?/g;
   let m;
   while ((m = re.exec(cl)) !== null) {
-    const value = parseInt(m[2].replace(/[,.]/g, ''), 10);
+    const token = m[2].replace(/[,.]+$/, '');
+    if (!isMoneyToken(token)) continue;
+    const value = parseInt(token.replace(/[,.]/g, ''), 10);
     if (!Number.isFinite(value)) continue;
     out.push({ value, marked: Boolean(m[1] || m[3]) });
   }
   return out;
 }
 
-const SKIP_TOTAL = /(預り|預かり|釣|おつり|ポイント|対象|内税|消費税|税額|税等|値引|割引|点数|数量|単価|残高|チャージ|TEL|電話|No\.|レジ|担当|会員|カード番号)/i;
+const SKIP_TOTAL = /(預り|預かり|釣|おつり|ポイント|対象|内税|消費税|税額|税等|税合計|税計|値引|割引|点数|数量|単価|残高|チャージ|TEL|電話|No\.|レジ|担当|会員|カード番号)/i;
 const TOTAL_KEYWORDS = [
   [/総合計/, 12],
   [/(?<!小)合計/, 10],
   [/(領収金額|ご請求|請求金額|お支払|支払金額|お買上|お買い上げ|お会計)/, 8],
+  [/(クレジット|電子マネー|ご利用額|QUICPay|PayPay)/i, 7],
   [/税込/, 6],
-  [/金額/, 4],
-  [/小計/, 3]
+  [/金額/, 4]
 ];
 const ONLY_NUMBER = /^[¥\\]?\s*[\d,.\s]+\s*円?$/;
+const SUBTOTAL = /小計/;
+// 合計とは別に書かれる税額の行（外税・税合計など）
+const TAX_TOTAL = /(税合計|外税計|内税計|消費税等合計|消費税合計)/;
+const TAX_LINE = /(内消費税|消費税|税額|税等|外税|外\d{1,2}%)/;
 
+function lineNumbers(lines, i, min = 1) {
+  let nums = parseNumbers(lines[i]).filter((n) => n.value >= min && n.value <= 10000000);
+  if (nums.length === 0 && lines[i + 1] && ONLY_NUMBER.test(lines[i + 1])) {
+    nums = parseNumbers(lines[i + 1]).filter((n) => n.value >= min && n.value <= 10000000);
+  }
+  return nums;
+}
+
+// 合計金額を選ぶ。合計の行・支払いの行・「小計＋外税」をそれぞれ候補にして、点数の高いものを採用する。
+// 商品の行（キーワードのない行）からは選ばない。
 function findAmount(lines) {
-  let best = null;
+  const cand = new Map();
+  const add = (value, score, marked) => {
+    const c = cand.get(value) || { value, score: 0, sources: 0, best: 0 };
+    c.score += score + (marked ? 1 : 0);
+    c.sources += 1;
+    c.best = Math.max(c.best, score);
+    cand.set(value, c);
+  };
+
+  const subtotals = [];
+  const taxes = [];
   lines.forEach((line, i) => {
     const cl = compact(line);
+    if (SUBTOTAL.test(cl) && !/対象/.test(cl)) lineNumbers(lines, i, 10).forEach((n) => subtotals.push(n.value));
+    if ((TAX_TOTAL.test(cl) || /外税|外\d{1,2}%/.test(cl)) && !/対象/.test(cl)) lineNumbers(lines, i, 1).forEach((n) => taxes.push(n.value));
     if (SKIP_TOTAL.test(cl)) return;
     const kw = TOTAL_KEYWORDS.find(([re]) => re.test(cl));
     if (!kw) return;
-    let nums = parseNumbers(line).filter((n) => n.value >= 1);
-    if (nums.length === 0 && lines[i + 1] && ONLY_NUMBER.test(lines[i + 1])) {
-      nums = parseNumbers(lines[i + 1]).filter((n) => n.value >= 1);
-    }
-    if (nums.length === 0) return;
-    const value = nums[nums.length - 1].value;
-    if (value > 10000000) return;
-    const score = kw[1];
-    if (!best || score > best.score || (score === best.score && value > best.value)) {
-      best = { value, score };
-    }
+    // 読み違いに備えて、行の中の数字はすべて候補にする（2桁以上）
+    lineNumbers(lines, i, 10).forEach((n) => add(n.value, kw[1], n.marked));
   });
-  if (best) return { value: best.value, conf: best.score >= 8 ? 'high' : 'low' };
+  // 小計＋外税 と一致する候補は信頼度を上げる（計算だけで出た金額は控えめな点数）
+  const computed = new Set();
+  for (const s of new Set(subtotals)) {
+    for (const t of new Set(taxes)) {
+      if (t > 0 && t <= s * 0.11 + 1) computed.add(s + t);
+    }
+  }
+  for (const v of computed) {
+    if (cand.has(v)) { cand.get(v).score += 6; cand.get(v).sources += 1; }
+    else add(v, 5, false);
+  }
+  // 「¥8,619」の一部だけ読めた「19」のような欠片は除く（最大の候補の1/20未満）
+  const maxValue = Math.max(0, ...[...cand.values()].map((c) => c.value));
+  for (const [v] of cand) if (v * 20 < maxValue) cand.delete(v);
+  const ranked = [...cand.values()].sort((a, b) => b.score - a.score || b.best - a.best || b.value - a.value);
+  if (ranked.length) {
+    const top = ranked[0];
+    const agreed = top.sources >= 2 || top.score >= 15;
+    // 同じくらいの点数で別の金額がある場合は、読み違いの可能性があるので確認してもらう
+    const rival = ranked[1] && ranked[1].score >= top.score - 2;
+    return { value: top.value, conf: !rival && (top.best >= 10 || agreed) ? 'high' : 'low' };
+  }
+  // 合計の行が読めなかった場合は小計（内税のレシートなど）
+  if (subtotals.length) return { value: Math.max(...subtotals), conf: 'low' };
 
-  // キーワードが無い場合は「¥」「円」付きで最大の金額
+  // キーワードが無い場合（手書きの領収書など）は「¥」「円」付きで最大の金額
   let max = null;
   lines.forEach((line) => {
     if (SKIP_TOTAL.test(compact(line))) return;
@@ -100,24 +154,33 @@ function findTax(lines, total) {
   else if (has10) taxRate = '10';
   else if (has8) taxRate = '8';
 
-  let taxAmount = 0;
-  let found = false;
+  const valid = (v) => v > 0 && (!total || v <= total * 0.11 + 1);
+  // 1) 税の合計が書かれていればそれを使う
+  let taxTotal = null;
+  // 2) なければ税率ごとの税額を足す（例：8%対象 ¥150 内消費税 ¥11 ／ 10%対象 ¥220 内消費税 ¥20）
+  let sum = 0;
   cleaned.forEach((cl, i) => {
-    const k = cl.search(/(消費税|内税|税額|税等)/);
+    if (TAX_TOTAL.test(cl)) {
+      const nums = parseNumbers(cl.slice(cl.search(TAX_TOTAL))).filter((n) => valid(n.value));
+      if (nums.length && taxTotal == null) taxTotal = nums[nums.length - 1].value;
+      return;
+    }
+    const k = cl.search(TAX_LINE);
     if (k < 0) return;
-    // 「8%対象 ¥150 内消費税 ¥11」のように対象額が前にある場合は、税の語より後ろだけを見る
-    let nums = parseNumbers(cl.slice(k)).filter((n) => n.value >= 1);
+    const after = cl.slice(k);
+    // 「(外8% 対象 ¥7,981)」のような課税対象額の行は除く
+    if (/対象/.test(after)) return;
+    let nums = parseNumbers(after).filter((n) => n.value >= 1);
     if (nums.length === 0 && lines[i + 1] && ONLY_NUMBER.test(lines[i + 1])) nums = parseNumbers(lines[i + 1]);
-    if (nums.length === 0) return;
-    taxAmount += nums[nums.length - 1].value;
-    found = true;
+    if (nums.length && valid(nums[nums.length - 1].value)) sum += nums[nums.length - 1].value;
   });
-  if (found && total && taxAmount > total * 0.11 + 1) found = false;
+  let taxAmount = taxTotal != null ? taxTotal : sum || null;
+  if (taxAmount != null && !valid(taxAmount)) taxAmount = null;
   return {
     taxRate,
     taxRateConf: taxRate === 'unknown' ? 'none' : 'high',
-    taxAmount: found ? taxAmount : null,
-    taxAmountConf: found ? 'high' : 'none'
+    taxAmount,
+    taxAmountConf: taxAmount != null ? 'high' : 'none'
   };
 }
 
@@ -178,9 +241,21 @@ function findVendor(lines) {
   for (const line of lines.slice(0, 6)) {
     if (NOT_VENDOR.test(line) || ADDRESS.test(line)) continue;
     const v = cleanVendor(line);
-    if (v.length >= 2 && /[\p{L}]/u.test(v)) return { value: v, conf: 'low' };
+    // 読み違いの文字の羅列（例：「ーー 0N0逢」）は店名にしない
+    const chars = v.replace(/\s/g, '');
+    const meaningful = (chars.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}A-Za-z]/gu) || []).filter((c) => c !== 'ー').length;
+    if (meaningful >= 2 && meaningful / chars.length >= 0.6) return { value: v, conf: 'low' };
   }
   return { value: '', conf: 'none' };
+}
+
+// 店の電話番号（店名の学習に使う）
+function findPhone(lines) {
+  for (const line of lines) {
+    const m = compact(line).match(/(?<!\d)(0\d{1,4})-(\d{1,4})-(\d{3,4})(?!\d)/);
+    if (m) return m[1] + m[2] + m[3];
+  }
+  return '';
 }
 
 export function extract(rawText, opts = {}) {
@@ -200,6 +275,7 @@ export function extract(rawText, opts = {}) {
     taxRate: tax.taxRate,
     taxAmount: tax.taxAmount,
     invoiceNo: invoice.value,
+    phone: findPhone(lines),
     conf: {
       date: date.conf,
       vendor: vendor.conf,

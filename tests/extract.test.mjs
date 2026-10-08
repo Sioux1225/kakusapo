@@ -86,6 +86,70 @@ test('手書き領収書（キーワードなし・円表記）', () => {
   assert.equal(r.conf.date, 'low');
 });
 
+test('業務スーパー（外税・合計が読み違えられた実写レシート）', () => {
+  // 実際のレシート写真をOCRした結果に近い文字列（合計の大きな数字が崩れ、数字だけの再読み取り結果が行末に付く）
+  const text = `
+    朱 芳 ズー /パー
+    ys 046-259-8288
+    登録番号 T1120901013120
+    2026年09月26日(土)15:34 >*0002
+    000219※8年産 千葉県産コ \\2.380
+    000208※料亭の味 \\398
+    000036※脈ロース切落し \\1.814
+    小計 7.981 1 ¥9811
+    (外8% 。 対象 が981) に
+    外8 とみ 638
+    外税肝 ニー ー-38 ¥38
+    (税合計 38) ¥638
+    合計 \\8ら. 6139 ¥8.619
+  `;
+  const r = extract(text, { today });
+  assert.equal(r.amount, 8619);
+  assert.equal(r.conf.amount, 'high');
+  assert.equal(r.date, '2026-09-26');
+  assert.equal(r.invoiceNo, 'T1120901013120');
+  assert.equal(r.taxAmount, 638);
+  assert.equal(r.phone, '0462598288');
+});
+
+test('合計の行がない場合は商品の金額を選ばず小計を使う', () => {
+  const r = extract('りんご ¥2,380\nみかん ¥398\n小計 ¥2,778', { today });
+  assert.equal(r.amount, 2778);
+  assert.equal(r.conf.amount, 'low');
+});
+
+test('合計の読み取り結果が2通りに分かれたら「自信が低め」にする', () => {
+  const r = extract('小計 981\n合計 \\\\ら. 6ら19 ¥8.613 ¥8.619', { today });
+  assert.equal(r.conf.amount, 'low');
+});
+
+test('合計を3回読んで2回同じなら、その金額で確定', () => {
+  const r = extract('合計 \\\\ら. 6ら19 ¥8.619 ¥8.613 ¥8.619', { today });
+  assert.equal(r.amount, 8619);
+  assert.equal(r.conf.amount, 'high');
+});
+
+test('合計の読み取りと「小計＋外税」が一致すれば確定', () => {
+  const r = extract('小計 ¥7,981\n外税計 ¥638\n合計 ¥8.613 ¥8.619', { today });
+  assert.equal(r.amount, 8619);
+  assert.equal(r.conf.amount, 'high');
+});
+
+test('区切り方がおかしい数字（8.6139）は金額にしない', () => {
+  const r = extract('合計 \\\\ら.、 8619 | ¥8.6139 ¥.19 ¥8.6139', { today });
+  assert.equal(r.amount, 8619);
+});
+
+test('金額の欠片（19）は合計にしない', () => {
+  const r = extract('合計 \\\\ら.、 8619 | ¥19\nお釣り 619', { today });
+  assert.equal(r.amount, 8619);
+});
+
+test('読み違いの文字の羅列は店名にしない', () => {
+  const r = extract('ーー 0N0逢\n山田商店\n合計 ¥500', { today });
+  assert.equal(r.vendor, '山田商店');
+});
+
 test('未来の日付は採用しない', () => {
   const r = extract('2027/05/01\n合計 ¥500', { today });
   assert.equal(r.date, null);

@@ -3,11 +3,11 @@
 import { db, requestPersist, newId } from './db.js';
 import { extract, isValidInvoiceNo } from './extract.js';
 import { CATEGORIES, CATEGORY_MAP, categoryName, suggestCategory, vendorKey } from './categories.js';
-import { recognize, warmUp, loadImage, resize, preprocess, toJpeg } from './ocr.js';
+import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './ocr.js';
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.1';
+export const APP_VERSION = '0.1.2';
 
 const state = {
   receipts: [],
@@ -466,7 +466,7 @@ function baseDraft() {
     date: todayISO(), vendor: '', amount: 0, taxRate: 'unknown', taxAmount: null, invoiceNo: '',
     category: '', suggested: '', categoryConfidence: 0, candidates: suggestCategory('', '').candidates, matched: '',
     paymentMethod: 'cash', businessRatio: 100, ratioTouched: false, memo: '', status: 'unconfirmed',
-    ocrRaw: '', ocrError: '', conf: {}, createdAt: ''
+    ocrRaw: '', ocrError: '', conf: {}, createdAt: '', phone: ''
   };
 }
 
@@ -479,12 +479,19 @@ async function buildDraft(file) {
   d.hasImage = true;
   let text = '';
   try {
-    const result = await recognize(preprocess(resize(img, 2000)), (p, label) => showOverlay(label, p));
+    const result = await recognize(prepareForOcr(img), (p, label) => showOverlay(label, p));
     text = result.text;
   } catch (e) {
     d.ocrError = e && e.message ? e.message : '読み取りエラー';
   }
   const ex = extract(text);
+  if (location.hostname === 'localhost') window.__lastOcr = text; // 開発時の確認用
+  // 前に確定した店なら、電話番号から店名を補う（大きな店名は読み違えやすいため）
+  const known = ex.phone && state.settings.phoneMap[ex.phone];
+  if (known) {
+    ex.vendor = known;
+    ex.conf.vendor = 'high';
+  }
   const sug = suggestCategory(ex.text, ex.vendor, state.settings.vendorMap);
   Object.assign(d, {
     date: ex.date || todayISO(),
@@ -500,7 +507,8 @@ async function buildDraft(file) {
     candidates: sug.candidates,
     matched: sug.matched,
     businessRatio: sug.top ? state.settings.ratios[sug.top] ?? 100 : 100,
-    ocrRaw: text
+    ocrRaw: text,
+    phone: ex.phone
   });
   return d;
 }
@@ -588,12 +596,14 @@ async function saveDraft(final) {
     imageId,
     status: final ? 'confirmed' : 'unconfirmed',
     ocrRaw: d.ocrRaw,
+    phone: d.phone || '',
     createdAt: d.createdAt || now,
     updatedAt: now
   };
   await db.putReceipt(record);
   if (final && record.vendor && record.category) {
     state.settings.vendorMap[vendorKey(record.vendor)] = record.category;
+    if (record.phone) state.settings.phoneMap[record.phone] = record.vendor;
     await db.saveSettings(state.settings);
   }
   requestPersist();
