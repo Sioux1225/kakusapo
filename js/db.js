@@ -1,10 +1,10 @@
 // 端末内データベース（IndexedDB）。外部には一切送信しない。
-// receipts: 領収書 / images: 画像（Blob） / settings: 設定（1件）
+// receipts: 領収書 / images: 画像（Blob） / settings: 設定（1件） / sales: 売上 / assets: 固定資産
 
 import { CATEGORIES } from './categories.js';
 
 const DB_NAME = 'kakusapo';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbPromise = null;
 
 function openDb() {
@@ -18,6 +18,9 @@ function openDb() {
       }
       if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
+      // v2：売上・固定資産
+      if (!db.objectStoreNames.contains('sales')) db.createObjectStore('sales', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('assets')) db.createObjectStore('assets', { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -46,6 +49,8 @@ export const DEFAULT_SETTINGS = {
   phoneMap: {},
   lastBackupAt: null,
   installGuideDismissed: false,
+  deduction: 65,
+  businessName: '',
   termsVersion: 0,
   termsAcceptedAt: null
 };
@@ -54,6 +59,12 @@ export const db = {
   allReceipts: () => run('receipts', 'readonly', (tx) => tx.objectStore('receipts').getAll()),
   getReceipt: (id) => run('receipts', 'readonly', (tx) => tx.objectStore('receipts').get(id)),
   putReceipt: (r) => run('receipts', 'readwrite', (tx) => tx.objectStore('receipts').put(r)),
+  allSales: () => run('sales', 'readonly', (tx) => tx.objectStore('sales').getAll()),
+  putSale: (r) => run('sales', 'readwrite', (tx) => tx.objectStore('sales').put(r)),
+  deleteSale: (id) => run('sales', 'readwrite', (tx) => tx.objectStore('sales').delete(id)),
+  allAssets: () => run('assets', 'readonly', (tx) => tx.objectStore('assets').getAll()),
+  putAsset: (r) => run('assets', 'readwrite', (tx) => tx.objectStore('assets').put(r)),
+  deleteAsset: (id) => run('assets', 'readwrite', (tx) => tx.objectStore('assets').delete(id)),
   getImage: (id) => run('images', 'readonly', (tx) => tx.objectStore('images').get(id)),
   putImage: (id, blob) => run('images', 'readwrite', (tx) => tx.objectStore('images').put(blob, id)),
 
@@ -74,7 +85,9 @@ export const db = {
   },
   saveSettings: (s) => run('settings', 'readwrite', (tx) => tx.objectStore('settings').put(s, 'settings')),
 
-  clearAll: () => run(['receipts', 'images', 'settings'], 'readwrite', (tx) => {
+  clearAll: () => run(['receipts', 'images', 'settings', 'sales', 'assets'], 'readwrite', (tx) => {
+    tx.objectStore('sales').clear();
+    tx.objectStore('assets').clear();
     tx.objectStore('receipts').clear();
     tx.objectStore('images').clear();
     tx.objectStore('settings').clear();

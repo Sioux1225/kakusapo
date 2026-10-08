@@ -17,6 +17,8 @@
 | `js/ocr.js` | 端末内OCR（Tesseract.js）と画像の前処理 |
 | `js/extract.js` | OCRの文字から日付・店名・金額・税率・消費税額・インボイス番号を取り出す |
 | `js/categories.js` | 勘定科目マスタと科目の提案 |
+| `js/phase2.js` | 申告の手順・売上・固定資産・決算書（収支内訳書）の金額の画面 |
+| `js/depreciation.js` | 減価償却の計算（定額法・一括償却・少額特例・中古の簡便法） |
 | `js/db.js` | 端末内データベース（IndexedDB） |
 | `js/backup.js` | バックアップ・復元・CSV書き出し |
 | `sw.js` / `manifest.webmanifest` | オフライン対応・ホーム画面への追加 |

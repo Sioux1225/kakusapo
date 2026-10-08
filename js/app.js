@@ -6,11 +6,16 @@ import { CATEGORIES, CATEGORY_MAP, categoryName, suggestCategory, vendorKey } fr
 import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './ocr.js';
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
+import { createPhase2 } from './phase2.js';
 
-export const APP_VERSION = '0.1.11';
+export const APP_VERSION = '0.2.0';
 
 const state = {
   receipts: [],
+  sales: [],
+  assets: [],
+  saleDraft: null,
+  assetDraft: null,
   settings: null,
   draft: null,
   queue: [],
@@ -63,6 +68,8 @@ async function reload() {
   state.receipts = (await db.allReceipts()).sort((a, b) =>
     String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt)));
   state.settings = await db.getSettings();
+  state.sales = await db.allSales();
+  state.assets = (await db.allAssets()).sort((a, b) => String(b.acquiredOn).localeCompare(String(a.acquiredOn)));
 }
 
 const monthTotal = (key) => state.receipts.filter((r) => ym(r.date) === key).reduce((s, r) => s + businessAmount(r), 0);
@@ -279,49 +286,6 @@ function viewSummary() {
   </main>${nav('summary')}`;
 }
 
-/* ---------- 申告（Phase 1：科目ごとの金額と申告前チェック） ---------- */
-function viewTax() {
-  const year = state.taxYear;
-  const blue = state.settings.filingType !== 'white';
-  const items = yearReceipts(year);
-  const totals = categoryTotals(items);
-  const total = Object.values(totals).reduce((a, b) => a + b, 0);
-  const rows = CATEGORIES.filter((c) => totals[c.id]).map((c) => ({ c, v: totals[c.id] }));
-  const pend = items.filter((r) => r.status !== 'confirmed').length;
-  const miscShare = total ? (totals.misc || 0) / total * 100 : 0;
-  const s = state.settings;
-
-  const check = (ok, text, href) => `<${href ? `a href="${href}"` : 'div'} class="check-row ${ok ? 'ok' : 'ng'}">${svg(ok ? ICON.check : ICON.alert, 18, ok ? 2.4 : 2)}<span>${text}</span>${href ? svg(ICON.next, 16, 2) : ''}</${href ? 'a' : 'div'}>`;
-
-  return `<main class="screen">
-    <header class="page-head">
-      <div><h1>確定申告ガイド</h1><span class="muted">${year}年分 ・ 申告期間 ${year + 1}年2月16日〜3月15日</span></div>
-      <select class="select-inline" data-action="tax-year" aria-label="年">${yearsWithData().map((y) => `<option value="${y}"${y === year ? ' selected' : ''}>${y}年分</option>`).join('')}</select>
-    </header>
-    ${segmented('申告の種類', [['blue', '青色申告'], ['white', '白色申告']], blue ? 'blue' : 'white', 'filing-type')}
-    <section class="card form-card">
-      <div class="form-card-head">
-        <b>${blue ? '青色申告決算書（一般用）1ページ目「経費」' : '収支内訳書（一般用）1ページ目「経費」'}</b>
-        <span>${blue ? '丸数字は決算書の欄番号です。㉕・㉖は空欄に科目名を書いて追加します' : '同じ名前の欄に金額を書き写します'}</span>
-      </div>
-      ${rows.length ? rows.map(({ c, v }) => `<div class="form-row">
-        <span class="no${blue ? '' : ' plain'}">${blue ? c.blueNo : '・'}</span>
-        <span class="form-name">${h(c.name)}${c.extra ? '<small>（追加する科目）</small>' : ''}</span>
-        <b>${yen(v)}</b>
-      </div>`).join('') : '<div class="empty">この年の領収書はまだありません</div>'}
-      <div class="form-total"><span>${blue ? '㉜ ' : ''}経費の合計</span><b>${yen(total)}</b></div>
-    </section>
-    <section class="card checks">
-      <h2>申告前チェック</h2>
-      ${check(pend === 0, pend ? `未確認の領収書が${pend}件あります` : '未確認の領収書はありません', pend ? '#/list?pending' : '')}
-      ${check(miscShare <= 10, `雑費は全体の${miscShare.toFixed(1)}%（目安10%以下）`)}
-      ${check(Boolean(s.lastBackupAt), s.lastBackupAt ? `バックアップ済み（${longDate(s.lastBackupAt.slice(0, 10))}）` : 'まだバックアップしていません', s.lastBackupAt ? '' : '#/settings')}
-    </section>
-    <div class="info">売上・減価償却・帳簿（仕訳帳・総勘定元帳）・作成コーナーへの転記ガイドは、次のアップデートで追加します。</div>
-    <div class="info">青色申告特別控除は <b>65万円</b> と <b>10万円</b> に対応します。2027年分から始まる <b>75万円控除</b> は、優良な電子帳簿などの条件があるため、このアプリでは受けられません。</div>
-  </main>${nav('tax')}`;
-}
-
 /* ---------- 入力・確認画面 ---------- */
 function field(label, name, input, conf) {
   const low = conf === 'low' || conf === 'none';
@@ -454,6 +418,11 @@ function viewSettings() {
     <section class="section">
       <h2>申告の種類</h2>
       ${segmented('申告の種類', [['blue', '青色申告'], ['white', '白色申告']], s.filingType, 'filing-type')}
+      ${s.filingType !== 'white' ? `<div class="chips two" role="group" aria-label="青色申告特別控除">
+        <button type="button" class="chip" data-action="set-deduction" data-value="65" aria-pressed="${Number(s.deduction) !== 10}">65万円控除</button>
+        <button type="button" class="chip" data-action="set-deduction" data-value="10" aria-pressed="${Number(s.deduction) === 10}">10万円控除</button>
+      </div>
+      <p class="muted small">75万円控除（2027年分から）には対応していません。</p>` : ''}
     </section>
 
     <section class="section">
@@ -516,8 +485,10 @@ async function render() {
   }
   if ((view === 'form' || view === 'edit') && !state.draft) { location.hash = '#/home'; return; }
   if (view !== 'form' && view !== 'edit') discardDraft();
+  const redirect = p2.prepare(view, param, query);
+  if (redirect) { location.hash = redirect; return; }
 
-  const views = { home: viewHome, list: viewList, summary: viewSummary, tax: viewTax, settings: viewSettings, form: viewForm, edit: viewForm };
+  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views };
   app().innerHTML = (views[view] || viewHome)();
   document.title = '確サポ';
   if (state.scrollTop === false) state.scrollTop = true;
@@ -822,12 +793,14 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
-    const fn = actions[el.dataset.action];
+    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action];
     if (fn) { e.preventDefault(); fn(el); }
   });
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (el.dataset.field && el.dataset.field !== 'category') onFieldInput(el);
+    if (el.dataset.sale) p2.onSaleInput(el);
+    if (el.dataset.asset) p2.onAssetInput(el, false);
     // 日本語の変換中（未確定）は待つ。確定したら結果の一覧だけを描き直す
     if (el.dataset.action === 'list-query' && !e.isComposing) updateListResults(el.value);
   });
@@ -836,6 +809,7 @@ function bindEvents() {
   });
   document.addEventListener('change', async (e) => {
     const el = e.target;
+    if (el.dataset.asset) { if (p2.onAssetInput(el, true)) rerender(); return; }
     if (el.dataset.field === 'category') onFieldInput(el);
     else if (el.dataset.field === 'amount' || el.dataset.field === 'invoiceNo') { onFieldInput(el); state.scrollTop = false; render(); }
     else if (el.dataset.action === 'list-month') { state.listMonth = el.value; state.scrollTop = false; render(); }
@@ -885,7 +859,18 @@ function setupUpdates() {
   }).catch(() => {});
 }
 
+function rerender() {
+  state.scrollTop = false;
+  render();
+}
+
+let p2 = null;
+
 async function start() {
+  p2 = createPhase2({
+    state, svg, ICON, h, yen, num, segmented, nav, db, toast, newId, todayISO, longDate,
+    yearReceipts, categoryTotals, yearsWithData, reload, rerender
+  });
   await reload();
   bindEvents();
   await render();

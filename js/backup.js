@@ -42,8 +42,10 @@ const stamp = () => new Date().toISOString().slice(0, 10).replace(/-/g, '');
 export async function exportBackup() {
   const receipts = await db.allReceipts();
   const settings = await db.getSettings();
+  const sales = await db.allSales();
+  const assets = await db.allAssets();
   const parts = [`{"app":"kakusapo","version":${BACKUP_VERSION},"exportedAt":${JSON.stringify(new Date().toISOString())},`];
-  parts.push(`"settings":${JSON.stringify(settings)},"receipts":${JSON.stringify(receipts)},"images":{`);
+  parts.push(`"settings":${JSON.stringify(settings)},"sales":${JSON.stringify(sales)},"assets":${JSON.stringify(assets)},"receipts":${JSON.stringify(receipts)},"images":{`);
   let first = true;
   for (const r of receipts) {
     if (!r.imageId) continue;
@@ -82,6 +84,17 @@ export async function importBackup(file) {
     }
     await db.putReceipt(r);
     added++;
+  }
+  // 売上・固定資産（v0.2 以降のバックアップのみ）。同じIDは更新日時が新しい方を残す
+  for (const [list, all, put] of [[data.sales, db.allSales, db.putSale], [data.assets, db.allAssets, db.putAsset]]) {
+    if (!Array.isArray(list)) continue;
+    const cur = new Map((await all()).map((r) => [r.id, r]));
+    for (const r of list) {
+      const old = cur.get(r.id);
+      if (old && (old.updatedAt || '') >= (r.updatedAt || '')) continue;
+      await put(r);
+      added++;
+    }
   }
   const settings = await db.getSettings();
   if (data.settings) {

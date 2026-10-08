@@ -342,3 +342,55 @@ svg { flex: none; }
   min-height: 44px; padding: 0 16px; border: none; border-radius: 10px; background: var(--orange); color: var(--on-orange);
   font-size: 14px; font-weight: 700; cursor: pointer;
 }
+
+/* Phase 2：申告の手順・売上・固定資産・決算書 */
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.grow { flex: 1; min-width: 0; }
+.btn-primary.link { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 0 12px; text-align: center; }
+.chips.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.chips.two .chip { border-radius: 12px; font-size: 15px; }
+.deduction { display: flex; flex-direction: column; gap: 8px; }
+.req-box { padding: 10px 12px; background: var(--orange-tint); border-radius: 12px; font-size: 12px; line-height: 1.6; color: #6B4A1F; }
+.req-box b { color: var(--orange-deep); }
+.note { display: flex; gap: 8px; font-size: 12px; line-height: 1.55; color: var(--sub); padding: 0 2px; }
+.note b { color: var(--ink); }
+.note svg { margin-top: 1px; }
+.figures { padding: 12px 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.figures div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.figures span { font-size: 12px; }
+.figures b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.figures b.accent { color: var(--orange-text); }
+.step-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-height: 56px; text-decoration: none; color: var(--ink); }
+.step-row + .step-row { border-top: 1px solid var(--line-soft); }
+.step-row.is-disabled { opacity: 0.7; }
+.step-mark { width: 30px; height: 30px; flex: none; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--line-soft); color: var(--sub); }
+.step-mark.done { background: var(--orange); color: var(--on-orange); }
+.step-mark.warn { background: var(--warn-bg); color: var(--warn); }
+.step-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.step-text b { font-size: 15px; font-weight: 600; }
+.step-text span { font-size: 12px; }
+.st-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line-soft); font-size: 14px; }
+.st-row b { font-variant-numeric: tabular-nums; }
+.st-row.strong { font-weight: 700; }
+.st-row.total { border-top: 1px solid var(--line-strong); background: #FAFAFA; font-weight: 700; }
+.st-row.result { background: var(--orange-tint); color: var(--orange-deep); font-weight: 700; font-size: 16px; border-top: 1px solid var(--orange-soft); }
+.sale-row { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: 46px; text-decoration: none; color: var(--ink); font-size: 14px; }
+.sale-row + .sale-row { border-top: 1px solid var(--line-soft); }
+.sale-row b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.sale-month { width: 40px; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.field.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.field.two-col label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.inline-field { display: flex; align-items: center; gap: 8px; font-size: 14px; flex-wrap: wrap; }
+.inline-field input { width: 72px; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; background: var(--card); text-align: right; font-size: 16px; }
+.calc-box { background: var(--orange-tint); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.calc-title { font-size: 13px; color: var(--orange-deep); }
+.calc-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.calc-row b { font-variant-numeric: tabular-nums; text-align: right; }
+.calc-row.total { padding-top: 8px; border-top: 1px solid var(--orange-soft); font-weight: 700; }
+.calc-row.total b { font-size: 20px; }
+.calc-row.small { font-size: 12px; color: #6B4A1F; padding: 4px 0; }
+.calc-box p { font-size: 12px; line-height: 1.55; color: #6B4A1F; }
+.calc-box details summary { font-size: 13px; font-weight: 600; color: var(--orange-deep); cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.section-head h2 { font-size: 15px; font-weight: 700; }
+.calc-row b { white-space: nowrap; }
+.calc-row span { min-width: 0; }
