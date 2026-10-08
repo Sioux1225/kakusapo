@@ -283,6 +283,11 @@ svg { flex: none; }
 .btn-text { min-height: 48px; border: none; background: transparent; font-size: 15px; font-weight: 600; cursor: pointer; }
 .btn-text.danger { color: var(--warn); }
 
+/* 免責事項 */
+.terms summary { font-weight: 700; font-size: 14px; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.terms ol { margin: 4px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; line-height: 1.65; color: var(--ink); }
+.terms b { display: block; }
+
 /* 読み取りの詳細（調査用） */
 .debug { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 10px 12px; background: var(--card); }
 .debug summary { font-size: 13px; color: var(--sub); cursor: pointer; min-height: 32px; display: flex; align-items: center; }
