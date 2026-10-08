@@ -282,6 +282,12 @@ svg { flex: none; }
 .btn-text { min-height: 48px; border: none; background: transparent; font-size: 15px; font-weight: 600; cursor: pointer; }
 .btn-text.danger { color: var(--warn); }
 
+/* 読み取りの詳細（調査用） */
+.debug { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+.debug summary { font-size: 13px; color: var(--sub); cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.debug img { width: 100%; margin: 8px 0; border: 1px solid var(--line); }
+.debug pre { white-space: pre-wrap; word-break: break-all; font-size: 11px; line-height: 1.5; margin: 0; max-height: 360px; overflow: auto; }
+
 /* 設定 */
 .ratio-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; }
 .ratio-row + .ratio-row { border-top: 1px solid var(--line-soft); }

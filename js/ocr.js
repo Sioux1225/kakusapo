@@ -236,10 +236,14 @@ function binarize(canvas) {
 }
 
 // OCR用の画像を作る
+// iPhone のブラウザは大きすぎる画像を処理できない（白く抜ける）ため、画素数に上限を設ける
+const MAX_PIXELS = 5000000;
+
 export function prepareForOcr(img) {
   const p = findPaper(img);
   let scale = 1400 / p.w;
-  if (p.h * scale > 5000) scale = 5000 / p.h;
+  if (p.h * scale > 4200) scale = 4200 / p.h;
+  if (p.w * scale * p.h * scale > MAX_PIXELS) scale = Math.sqrt(MAX_PIXELS / (p.w * p.h));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(p.w * scale);
   canvas.height = Math.round(p.h * scale);
@@ -247,7 +251,13 @@ export function prepareForOcr(img) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, p.x, p.y, p.w, p.h, 0, 0, canvas.width, canvas.height);
-  return binarize(canvas);
+  binarize(canvas);
+  canvas.info = {
+    source: `${img.naturalWidth}×${img.naturalHeight}`,
+    paper: `${Math.round(p.x)},${Math.round(p.y)} ${Math.round(p.w)}×${Math.round(p.h)}`,
+    prepared: `${canvas.width}×${canvas.height}`
+  };
+  return canvas;
 }
 
 export function toJpeg(canvas, quality = 0.8) {

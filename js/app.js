@@ -7,7 +7,7 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 
-export const APP_VERSION = '0.1.4';
+export const APP_VERSION = '0.1.5';
 
 const state = {
   receipts: [],
@@ -381,6 +381,13 @@ function viewForm() {
       <button type="button" class="btn-text" data-action="save-later">${d.isNew ? 'あとで確認する' : '未確認として保存'}</button>
       ${d.isNew ? '' : '<button type="button" class="btn-text danger" data-action="delete">この領収書を削除</button>'}
     </div>
+
+    ${d.isNew && d.hasImage ? `<details class="debug">
+      <summary>読み取りの詳細（うまく読めないときの確認用）</summary>
+      ${d.debug ? `<p class="small muted">元の画像 ${h(d.debug.source)} ／ 紙の範囲 ${h(d.debug.paper)} ／ 読み取り用 ${h(d.debug.prepared)} ／ ${h(d.debug.seconds)}秒 ／ v${APP_VERSION}</p>
+      <img src="${d.debug.image}" alt="読み取り用に加工した画像">` : ''}
+      <pre>${h(d.ocrRaw || '（文字を読み取れませんでした）')}</pre>
+    </details>` : ''}
   </main>`;
 }
 
@@ -482,12 +489,18 @@ async function buildDraft(file) {
   d.imageUrl = URL.createObjectURL(d.imageBlob);
   d.hasImage = true;
   let text = '';
+  const started = Date.now();
   try {
-    const result = await recognize(prepareForOcr(img), (p, label) => showOverlay(label, p));
+    const prepared = prepareForOcr(img);
+    // 不具合の調査用：OCRに渡した画像（縮小）と処理の情報
+    const preview = resize(prepared, 900);
+    d.debug = { ...prepared.info, image: preview.toDataURL('image/jpeg', 0.6) };
+    const result = await recognize(prepared, (p, label) => showOverlay(label, p));
     text = result.text;
   } catch (e) {
     d.ocrError = e && e.message ? e.message : '読み取りエラー';
   }
+  if (d.debug) d.debug.seconds = ((Date.now() - started) / 1000).toFixed(1);
   const ex = extract(text);
   if (location.hostname === 'localhost') window.__lastOcr = text; // 開発時の確認用
   // 前に確定した店なら、電話番号から店名を補う（大きな店名は読み違えやすいため）
