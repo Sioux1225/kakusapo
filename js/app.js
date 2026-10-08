@@ -8,8 +8,9 @@ import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './b
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 import { createPhase2 } from './phase2.js';
 import { createPhase3 } from './phase3.js';
+import { createPhase4 } from './phase4.js';
 
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.4.0';
 
 const state = {
   receipts: [],
@@ -22,6 +23,8 @@ const state = {
   ledgerAccount: '',
   exportParts: { cover: true, journal: true, ledger: true, statement: true, receipts: false },
   exportFormat: 'pdf',
+  statementView: 'pl',
+  transferStep: 'sales',
   settings: null,
   draft: null,
   queue: [],
@@ -521,7 +524,7 @@ async function render() {
   const redirect = p2.prepare(view, param, query);
   if (redirect) { location.hash = redirect; return; }
 
-  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views };
+  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views, ...p4.views };
   app().innerHTML = (views[view] || viewHome)();
   document.title = '確サポ';
   if (state.scrollTop === false) state.scrollTop = true;
@@ -831,7 +834,7 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
-    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action];
+    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action] || p4.actions[el.dataset.action];
     if (fn) { e.preventDefault(); fn(el); }
   });
   document.addEventListener('input', (e) => {
@@ -912,15 +915,21 @@ function rerender() {
 
 let p2 = null;
 let p3 = null;
+let p4 = null;
 
 async function start() {
   const ctx = {
     state, svg, ICON, h, yen, num, segmented, nav, db, toast, newId, todayISO, longDate,
-    yearReceipts, categoryTotals, yearsWithData, reload, rerender
+    yearReceipts, categoryTotals, yearsWithData, reload, rerender, render
   };
   p2 = createPhase2(ctx);
-  p3 = createPhase3({ ...ctx, figures: p2.figures });
+  const ctx3 = { ...ctx, figures: p2.figures };
+  p3 = createPhase3(ctx3);
+  p4 = createPhase4({ ...ctx, figures: p2.figures, books: p3.books });
   ctx.journalCount = p3.journalCount;
+  ctx.balanceSheet = p4.balanceSheet;
+  ctx.bsHtml = p4.bsHtml;
+  ctx3.bsPrintHtml = p4.bsPrintHtml;
   await reload();
   bindEvents();
   await render();

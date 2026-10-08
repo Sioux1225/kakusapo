@@ -83,7 +83,7 @@ export function createPhase2(ctx) {
         sub: blue ? (ded === 65 ? '損益計算書・貸借対照表' : '損益計算書') : '収入・経費の欄ごとの金額'
       },
       {
-        title: '作成コーナーで申告書を作る', href: 'https://www.keisan.nta.go.jp/', external: true, status: 'todo',
+        title: '作成コーナーで申告書を作る', href: '#/transfer', status: 'todo',
         sub: blue && ded === 65 ? 'e-Tax で送信（65万円には必須）' : 'e-Tax で送信、または印刷して提出'
       }
     ];
@@ -134,10 +134,14 @@ export function createPhase2(ctx) {
     const check = (ok, text, href) => `<${href ? `a href="${href}"` : 'div'} class="check-row ${ok ? 'ok' : 'ng'}">${svg(ok ? ICON.check : ICON.alert, 18, ok ? 2.4 : 2)}<span>${text}</span>${href ? svg(ICON.next, 16, 2) : ''}</${href ? 'a' : 'div'}>`;
     const line = (label, v, cls = '') => `<div class="st-row ${cls}"><span>${label}</span><b>${v < 0 ? '− ' + yen(-v) : yen(v)}</b></div>`;
 
+    const with65 = blue && Number(s.deduction) !== 10;
+    const bsView = with65 && state.statementView === 'bs';
+    const bs = with65 && ctx.balanceSheet ? ctx.balanceSheet(year) : null;
     return `<main class="screen">
       ${back('#/tax')}<h1>${blue ? '決算書の金額' : '収支内訳書の金額'}</h1></header>
       <p class="muted">${year}年分 ・ ${blue ? `青色申告（${Number(s.deduction) === 10 ? 10 : 65}万円控除）` : '白色申告'}</p>
-      <section class="card form-card">
+      ${with65 ? segmented('決算書の種類', [['pl', '損益計算書'], ['bs', '貸借対照表']], bsView ? 'bs' : 'pl', 'statement-view') : ''}
+      ${bsView ? ctx.bsHtml(year) : `<section class="card form-card">
         <div class="form-card-head"><b>${blue ? '青色申告決算書（一般用）1ページ目' : '収支内訳書（一般用）1ページ目'}</b>
           <span>${blue ? '丸数字は決算書の欄番号です。㉕・㉖は空欄に科目名を書いて追加します' : '同じ名前の欄に金額を書き写します'}</span></div>
         ${line(blue ? '① 売上（収入）金額' : '売上（収入）金額', f.sales, 'strong')}
@@ -149,13 +153,13 @@ export function createPhase2(ctx) {
         ${line('差引金額（売上 − 経費）', f.before)}
         ${blue ? line(`青色申告特別控除（${Number(s.deduction) === 10 ? 10 : 65}万円）`, -f.deduction) : ''}
         ${line('所得金額', f.income, 'result')}
-      </section>
-      ${blue && Number(s.deduction) !== 10 ? '<div class="info">貸借対照表は次のアップデートで追加します。</div>' : ''}
+      </section>`}
       <a class="btn-outline" href="#/ledger">帳簿（仕訳帳・総勘定元帳）を見る</a>
       <section class="card checks">
         <h2>申告前チェック</h2>
         ${check(f.pending === 0, f.pending ? `未確認の領収書が${f.pending}件あります` : '未確認の領収書はありません', f.pending ? '#/list?pending' : '')}
         ${check(f.sales > 0, f.sales > 0 ? `売上 ${yen(f.sales)} を記録済み` : '売上がまだ記録されていません', f.sales > 0 ? '' : '#/sales')}
+        ${bs ? check(bs.balanced, bs.balanced ? '貸借対照表の左右の合計が一致しています' : '貸借対照表の左右の合計が一致していません') : ''}
         ${check(miscShare <= 10, `雑費は経費全体の${miscShare.toFixed(1)}%（目安10%以下）`)}
         ${check(Boolean(s.lastBackupAt), s.lastBackupAt ? `バックアップ済み（${longDate(s.lastBackupAt.slice(0, 10))}）` : 'まだバックアップしていません', s.lastBackupAt ? '' : '#/settings')}
       </section>
@@ -362,6 +366,7 @@ export function createPhase2(ctx) {
       await db.saveSettings(state.settings);
       ctx.rerender();
     },
+    'statement-view': (el) => { state.statementView = el.dataset.value; ctx.rerender(); },
     'sale-to': (el) => { state.saleDraft.to = el.dataset.value; ctx.rerender(); },
     'save-sale': async () => {
       const d = state.saleDraft;

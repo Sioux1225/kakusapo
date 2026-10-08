@@ -465,3 +465,32 @@ a.btn-outline { text-decoration: none; color: var(--ink); }
 .jr-line.cr { color: var(--sub); padding-left: 14px; }
 .jr-side { width: 30px; flex: none; font-size: 11px; color: var(--sub); }
 .card.pad.row-between { flex-direction: row; }
+
+/* Phase 4：貸借対照表・転記ガイド */
+.bs { overflow: hidden; }
+.bs-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px 100px; gap: 8px; padding: 10px 14px; font-size: 13px; font-variant-numeric: tabular-nums; border-top: 1px solid var(--line-soft); }
+.bs-row > :nth-child(2), .bs-row > :nth-child(3) { text-align: right; }
+.bs-row > :nth-child(2) { color: var(--sub); }
+.bs-row.head { border-top: none; background: #FAFAFA; font-size: 12px; font-weight: 700; color: var(--sub); }
+.bs-row.total { background: var(--orange-tint); border-top: 1px solid var(--orange-soft); font-weight: 700; }
+.notice svg, .warn-box svg { flex: none; }
+.tr-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+.tr-step { border: none; background: none; padding: 4px 0; display: flex; flex-direction: column; gap: 5px; cursor: pointer; font-size: 10px; color: var(--sub); text-align: left; min-height: 44px; }
+.tr-step .bar { height: 6px; border-radius: 3px; background: #E2E2E2; }
+.tr-step.is-past .bar { background: var(--orange-soft); }
+.tr-step.is-current .bar { background: var(--orange); }
+.tr-step.is-current { color: var(--ink); font-weight: 700; }
+.tr-group { padding: 10px 16px 4px; font-size: 13px; font-weight: 700; color: var(--orange-deep); background: var(--orange-tint); }
+.tr-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 16px; border-top: 1px solid var(--line-soft); min-height: 56px; }
+.tr-row .grow { display: flex; flex-direction: column; gap: 2px; }
+.tr-label { font-size: 14px; }
+.tr-row.is-done { background: #FFF8EE; }
+.tr-row.is-done .tr-label { color: var(--sub); }
+.tr-copy { min-width: 120px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--card); display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; color: var(--ink); }
+.tr-row.is-done .tr-copy { border-color: transparent; background: transparent; color: var(--orange-text); }
+.tr-check { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 16px; min-height: 52px; border: none; border-top: 1px solid var(--line-soft); background: var(--card); text-align: left; font-size: 14px; cursor: pointer; color: var(--ink); }
+.tr-check:first-child { border-top: none; }
+.tr-check .box { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid var(--line-strong); display: flex; align-items: center; justify-content: center; color: var(--on-orange); }
+.tr-check[aria-checked="true"] .box { background: var(--orange); border-color: var(--orange); }
+.tr-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tr-actions .btn-outline, .tr-actions .btn-primary { min-height: 54px; font-size: 14px; }

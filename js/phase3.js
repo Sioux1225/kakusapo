@@ -120,7 +120,7 @@ export function createPhase3(ctx) {
       <div class="pr-bar"></div>
       <p class="pr-year">${year}年分（令和${year - 2018}年分）</p>
       <h1>帳簿</h1>
-      <p class="pr-sub">${[p.journal && '仕訳帳', p.ledger && '総勘定元帳', p.statement && (blue ? '決算書の金額' : '収支内訳書の金額'), p.receipts && '領収書の一覧'].filter(Boolean).join(' ・ ')}</p>
+      <p class="pr-sub">${[p.journal && '仕訳帳', p.ledger && '総勘定元帳', p.statement && (blue ? (Number(s.deduction) !== 10 ? '損益計算書・貸借対照表' : '損益計算書') : '収支内訳書の金額'), p.receipts && '領収書の一覧'].filter(Boolean).join(' ・ ')}</p>
       <table class="pr-info"><tbody>
         <tr><th>氏名</th><td>${who}</td></tr>
         <tr><th>屋号</th><td>${h(s.businessName || '—')}</td></tr>
@@ -177,7 +177,7 @@ export function createPhase3(ctx) {
         <button type="button" class="btn-small" data-action="print-now">印刷・PDFで保存</button>
       </div>
       <div class="print-doc">
-        ${p.cover ? cover : ''}${p.journal ? journal : ''}${p.ledger ? ledger : ''}${p.statement ? statement : ''}${p.receipts ? receipts : ''}
+        ${p.cover ? cover : ''}${p.journal ? journal : ''}${p.ledger ? ledger : ''}${p.statement ? statement : ''}${p.statement && blue && Number(s.deduction) !== 10 && ctx.bsPrintHtml ? ctx.bsPrintHtml(year, who) : ''}${p.receipts ? receipts : ''}
       </div>`;
   }
 
