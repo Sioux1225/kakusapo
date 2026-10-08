@@ -74,7 +74,10 @@ export function createPhase2(ctx) {
         status: state.assets.length ? 'done' : 'todo',
         sub: state.assets.length ? `${state.assets.length}件 ・ 今年の経費 ${yen(f.dep)}` : '10万円以上の車両・パソコンなどを買ったら登録'
       },
-      ...(blue ? [{ title: '帳簿を確認する', href: '', status: 'todo', sub: '次のアップデートで自動作成します' }] : []),
+      (() => {
+        const n = ctx.journalCount ? ctx.journalCount(year) : 0;
+        return { title: '帳簿を確認する', href: '#/ledger', status: n ? 'done' : 'todo', sub: n ? `仕訳 ${n}件 ・ 自動で作成済み` : '領収書や売上を登録すると自動で作成します' };
+      })(),
       {
         title: blue ? '決算書の金額を確認する' : '収支内訳書の金額を確認する', href: '#/statement', status: 'todo',
         sub: blue ? (ded === 65 ? '損益計算書・貸借対照表' : '損益計算書') : '収入・経費の欄ごとの金額'
@@ -147,7 +150,8 @@ export function createPhase2(ctx) {
         ${blue ? line(`青色申告特別控除（${Number(s.deduction) === 10 ? 10 : 65}万円）`, -f.deduction) : ''}
         ${line('所得金額', f.income, 'result')}
       </section>
-      ${blue && Number(s.deduction) !== 10 ? '<div class="info">貸借対照表は、帳簿の自動作成と一緒に次のアップデートで追加します。</div>' : ''}
+      ${blue && Number(s.deduction) !== 10 ? '<div class="info">貸借対照表は次のアップデートで追加します。</div>' : ''}
+      <a class="btn-outline" href="#/ledger">帳簿（仕訳帳・総勘定元帳）を見る</a>
       <section class="card checks">
         <h2>申告前チェック</h2>
         ${check(f.pending === 0, f.pending ? `未確認の領収書が${f.pending}件あります` : '未確認の領収書はありません', f.pending ? '#/list?pending' : '')}

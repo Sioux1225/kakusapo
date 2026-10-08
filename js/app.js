@@ -7,8 +7,9 @@ import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './o
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
 import { createPhase2 } from './phase2.js';
+import { createPhase3 } from './phase3.js';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 
 const state = {
   receipts: [],
@@ -16,6 +17,11 @@ const state = {
   assets: [],
   saleDraft: null,
   assetDraft: null,
+  ledgerView: 'journal',
+  ledgerMonth: '',
+  ledgerAccount: '',
+  exportParts: { cover: true, journal: true, ledger: true, statement: true, receipts: false },
+  exportFormat: 'pdf',
   settings: null,
   draft: null,
   queue: [],
@@ -282,7 +288,12 @@ function viewSummary() {
     </section>
     ${segmented('集計の切り替え', [['month', '月別'], ['category', '科目別']], state.summaryView, 'summary-view')}
     ${body}
-    <button type="button" class="btn-outline" data-action="export-csv">${svg(ICON.download, 18, 2)}CSVで書き出す</button>
+    <section class="card list">
+      <div class="card-title">帳簿・決算書</div>
+      <a class="link-row" href="#/ledger">${svg('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 7h6M9 11h6"/>', 20)}<span class="grow"><b>帳簿を見る</b><span class="muted small">仕訳帳・総勘定元帳</span></span>${svg(ICON.next, 16, 2)}</a>
+      <a class="link-row" href="#/statement">${svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M3 10h18"/>', 20)}<span class="grow"><b>決算書の金額を見る</b><span class="muted small">売上・経費・所得</span></span>${svg(ICON.next, 16, 2)}</a>
+      <a class="link-row" href="#/export">${svg(ICON.download, 20)}<span class="grow"><b>PDF・CSVで保存</b><span class="muted small">7年間の保存用・税理士への提出用</span></span>${svg(ICON.next, 16, 2)}</a>
+    </section>
   </main>${nav('summary')}`;
 }
 
@@ -426,6 +437,28 @@ function viewSettings() {
     </section>
 
     <section class="section">
+      <h2>事業者の情報</h2>
+      <div class="card fields">
+        <label class="field"><span class="field-label">氏名</span><input type="text" data-setting="ownerName" value="${h(s.ownerName || '')}" placeholder="帳簿の表紙に入ります" autocomplete="name"></label>
+        <label class="field"><span class="field-label">屋号（任意）</span><input type="text" data-setting="businessName" value="${h(s.businessName || '')}" placeholder="なし"></label>
+      </div>
+      <p class="muted small">帳簿の表紙に入ります。スマホの外には送信されません。</p>
+    </section>
+
+    <section class="section">
+      <h2>帳簿の設定</h2>
+      <p class="small">経費の支払いや売上の入金に、事業用の口座・カードを使っていますか？</p>
+      ${segmented('事業用の口座', [['no', '使っていない'], ['yes', '使っている']], s.bizAccount ? 'yes' : 'no', 'set-biz-account')}
+      ${s.bizAccount ? `<div class="card fields"><label class="field"><span class="field-label">${state.taxYear}年1月1日時点の事業用口座の残高</span>
+        <span class="yen-input"><input type="text" inputmode="numeric" data-setting="openingBank" value="${num((s.openingBank || {})[state.taxYear] || 0)}"><span>円</span></span></label></div>` : ''}
+      <p class="muted small">${s.bizAccount ? '口座・カード・電子マネーで払った経費は「普通預金」から支払ったものとして記帳します。' : '経費はすべて個人のお金で払ったもの（事業主借）として記帳します。分けていない方はこちらで大丈夫です。'}</p>
+      <div class="card list">
+        <a class="link-row" href="#/ledger"><span class="grow"><b>帳簿を見る</b><span class="muted small">仕訳帳・総勘定元帳</span></span>${svg(ICON.next, 16, 2)}</a>
+        <a class="link-row" href="#/export"><span class="grow"><b>帳簿をPDF・CSVで保存</b><span class="muted small">年ごとに保存（7年間の保存用）</span></span>${svg(ICON.next, 16, 2)}</a>
+      </div>
+    </section>
+
+    <section class="section">
       <h2>バックアップ</h2>
       <div class="card pad">
         <p class="muted small">データはこのスマホの中だけに保存されています。機種変更や故障に備えて、月に1回はバックアップを保存してください（iCloud Drive や Google ドライブに保存すると安心です）。</p>
@@ -488,7 +521,7 @@ async function render() {
   const redirect = p2.prepare(view, param, query);
   if (redirect) { location.hash = redirect; return; }
 
-  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views };
+  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views };
   app().innerHTML = (views[view] || viewHome)();
   document.title = '確サポ';
   if (state.scrollTop === false) state.scrollTop = true;
@@ -763,6 +796,11 @@ const actions = {
   },
   'import-backup': () => $('#import-input').click(),
   'export-csv': () => exportCsv(state.summaryYear),
+  'set-biz-account': async (el) => {
+    state.settings.bizAccount = el.dataset.value === 'yes';
+    await db.saveSettings(state.settings);
+    rerender();
+  },
   'dismiss-install': async () => { state.settings.installGuideDismissed = true; await db.saveSettings(state.settings); render(); },
   'clear-all': async () => {
     if (!window.confirm('すべての領収書と設定を削除します。よろしいですか？')) return;
@@ -793,7 +831,7 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
-    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action];
+    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action];
     if (fn) { e.preventDefault(); fn(el); }
   });
   document.addEventListener('input', (e) => {
@@ -815,6 +853,14 @@ function bindEvents() {
     else if (el.dataset.action === 'list-month') { state.listMonth = el.value; state.scrollTop = false; render(); }
     else if (el.dataset.action === 'summary-year') { state.summaryYear = Number(el.value); state.scrollTop = false; render(); }
     else if (el.dataset.action === 'tax-year') { state.taxYear = Number(el.value); state.scrollTop = false; render(); }
+    else if (el.dataset.action === 'ledger-month') { state.ledgerMonth = el.value; rerender(); }
+    else if (el.dataset.setting) {
+      const key = el.dataset.setting;
+      if (key === 'openingBank') state.settings.openingBank = { ...(state.settings.openingBank || {}), [state.taxYear]: toInt(el.value) };
+      else state.settings[key] = el.value.trim();
+      await db.saveSettings(state.settings);
+      toast('保存しました');
+    }
     else if (el.dataset.ratio) {
       state.settings.ratios[el.dataset.ratio] = Math.max(0, Math.min(100, toInt(el.value)));
       await db.saveSettings(state.settings);
@@ -865,12 +911,16 @@ function rerender() {
 }
 
 let p2 = null;
+let p3 = null;
 
 async function start() {
-  p2 = createPhase2({
+  const ctx = {
     state, svg, ICON, h, yen, num, segmented, nav, db, toast, newId, todayISO, longDate,
     yearReceipts, categoryTotals, yearsWithData, reload, rerender
-  });
+  };
+  p2 = createPhase2(ctx);
+  p3 = createPhase3({ ...ctx, figures: p2.figures });
+  ctx.journalCount = p3.journalCount;
   await reload();
   bindEvents();
   await render();
