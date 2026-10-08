@@ -88,7 +88,7 @@ svg { flex: none; }
 .btn-capture {
   height: 76px; border: none; border-radius: 20px; background: var(--orange); color: var(--on-orange);
   display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 19px; font-weight: 700; letter-spacing: 0.04em;
-  box-shadow: 0 8px 20px rgba(243, 152, 1, 0.28); cursor: pointer;
+  cursor: pointer;
 }
 .btn-capture:active { transform: translateY(1px); }
 .capture-tip { font-size: 12px; color: var(--sub); line-height: 1.6; margin: -8px 4px 0; }
@@ -169,7 +169,7 @@ svg { flex: none; }
 .fab {
   position: fixed; right: max(20px, calc(50% - 220px)); bottom: calc(100px + var(--safe-bottom));
   width: 60px; height: 60px; border-radius: 30px; border: none; background: var(--orange); color: var(--on-orange);
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(243, 152, 1, 0.32); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 
 /* 下のタブ */
