@@ -85,7 +85,9 @@ export function createPhase2(ctx) {
       {
         title: '作成コーナーで申告書を作る', href: '#/transfer', status: 'todo',
         sub: blue && ded === 65 ? 'e-Tax で送信（65万円には必須）' : 'e-Tax で送信、または印刷して提出'
-      }
+      },
+      // インボイス登録をしている人だけ：消費税の申告
+      ...(ctx.ctaxStep && ctx.ctaxStep(year) ? [ctx.ctaxStep(year)] : [])
     ];
     const left = steps.filter((s) => s.status !== 'done').length;
 

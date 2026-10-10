@@ -9,8 +9,9 @@ import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from '.
 import { createPhase2 } from './phase2.js';
 import { createPhase3 } from './phase3.js';
 import { createPhase4 } from './phase4.js';
+import { createCtax } from './ctax-view.js';
 
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.5.0';
 
 const state = {
   receipts: [],
@@ -176,6 +177,7 @@ function viewHome() {
       ${svg(ICON.next, 18, 2)}
     </a>` : ''}
 
+    ${ct.homeNotice(todayISO())}
     ${needBackup ? `<div class="notice">
       <div><b>バックアップをおすすめします</b><br>${s.lastBackupAt ? '前回から30日以上たっています' : 'まだ一度もバックアップしていません'}</div>
       <button type="button" class="btn-small" data-action="export-backup">今すぐ</button>
@@ -342,10 +344,11 @@ function viewForm() {
       ${field('日付', 'date', `<input type="date" data-field="date" value="${h(d.date)}" max="${todayISO()}">`, conf('date'))}
       ${field('支払先', 'vendor', `<input type="text" data-field="vendor" value="${h(d.vendor)}" placeholder="例：ENEOS 港北SS" autocomplete="off">`, conf('vendor'))}
       ${field('金額（税込）', 'amount', `<span class="yen-input"><input type="text" inputmode="numeric" data-field="amount" value="${d.amount ? num(d.amount) : ''}" placeholder="0"><span>円</span></span>`, conf('amount'))}
+      ${state.settings.invoiceRegistered === false ? '</div><details class="card fields more"><summary>消費税・インボイス番号（入力しなくても大丈夫です）</summary>' : ''}
       ${field('税率', 'taxRate', `<select data-field="taxRate">${taxOptions.map(([v, l]) => `<option value="${v}"${d.taxRate === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`, 'high')}
       ${field('消費税額', 'taxAmount', `<span class="yen-input"><input type="text" inputmode="numeric" data-field="taxAmount" value="${d.taxAmount ? num(d.taxAmount) : ''}" placeholder="わかれば"><span>円</span></span>`, d.taxAmount != null ? conf('taxAmount') : 'high')}
       ${field('インボイス登録番号', 'invoiceNo', `<span class="invoice-input"><input type="text" data-field="invoiceNo" value="${h(d.invoiceNo)}" placeholder="T＋13桁" autocapitalize="characters" autocomplete="off">${isValidInvoiceNo(d.invoiceNo) ? `<span class="ok-mark" aria-label="形式OK">${svg(ICON.check, 16, 2.6)}</span>` : ''}</span>`, 'high')}
-    </div>
+    ${state.settings.invoiceRegistered === false ? '</details>' : '</div>'}
 
     <section class="section">
       <div class="section-head"><h2>勘定科目</h2>${d.matched ? `<span class="muted">「${h(d.matched)}」から提案</span>` : ''}</div>
@@ -428,6 +431,12 @@ function viewSettings() {
       <a class="icon-btn plain" href="#/home" aria-label="戻る">${svg(ICON.back, 22, 2)}</a>
       <h1>設定</h1>
     </header>
+
+    <section class="section">
+      <h2>インボイス（適格請求書発行事業者）の登録</h2>
+      ${segmented('インボイスの登録', [['no', 'していない'], ['yes', 'している']], s.invoiceRegistered === true ? 'yes' : 'no', 'set-invoice')}
+      <p class="muted small">${s.invoiceRegistered ? '登録している方は、消費税の申告・納付（3月31日まで）が必要です。申告タブで計算方法ごとの納付額を比べられます。' : '登録していない方は、消費税の申告は必要ありません。'}</p>
+    </section>
 
     <section class="section">
       <h2>申告の種類</h2>
@@ -524,7 +533,7 @@ async function render() {
   const redirect = p2.prepare(view, param, query);
   if (redirect) { location.hash = redirect; return; }
 
-  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views, ...p4.views };
+  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views, ...p4.views, ...ct.views };
   app().innerHTML = (views[view] || viewHome)();
   document.title = '確サポ';
   if (state.scrollTop === false) state.scrollTop = true;
@@ -834,7 +843,7 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
-    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action] || p4.actions[el.dataset.action];
+    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action] || p4.actions[el.dataset.action] || ct.actions[el.dataset.action];
     if (fn) { e.preventDefault(); fn(el); }
   });
   document.addEventListener('input', (e) => {
@@ -916,6 +925,7 @@ function rerender() {
 let p2 = null;
 let p3 = null;
 let p4 = null;
+let ct = null;
 
 async function start() {
   const ctx = {
@@ -926,6 +936,8 @@ async function start() {
   const ctx3 = { ...ctx, figures: p2.figures };
   p3 = createPhase3(ctx3);
   p4 = createPhase4({ ...ctx, figures: p2.figures, books: p3.books });
+  ct = createCtax(ctx);
+  ctx.ctaxStep = ct.stepFor;
   ctx.journalCount = p3.journalCount;
   ctx.balanceSheet = p4.balanceSheet;
   ctx.bsHtml = p4.bsHtml;
