@@ -2,7 +2,8 @@
 
 import { db, requestPersist, newId } from './db.js';
 import { extract, isValidInvoiceNo } from './extract.js';
-import { CATEGORIES, CATEGORY_MAP, categoryName, suggestCategory, vendorKey } from './categories.js';
+import { CATEGORIES, CATEGORY_MAP, categoryName, suggestCategory, vendorKey, deductibilityWarning } from './categories.js';
+import { expenseItems, expandReceipt, splitsValid } from './expenses.js';
 import { recognize, warmUp, loadImage, resize, prepareForOcr, toJpeg } from './ocr.js';
 import { exportBackup, importBackup, exportCsv, PAY_LABEL, TAX_LABEL } from './backup.js';
 import { yen, num, h, todayISO, parseISO, longDate, ym, businessAmount } from './format.js';
@@ -10,8 +11,9 @@ import { createPhase2 } from './phase2.js';
 import { createPhase3 } from './phase3.js';
 import { createPhase4 } from './phase4.js';
 import { createCtax } from './ctax-view.js';
+import { createExtras } from './extras.js';
 
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.6.0';
 
 const state = {
   receipts: [],
@@ -82,7 +84,9 @@ async function reload() {
   state.assets = (await db.allAssets()).sort((a, b) => String(b.acquiredOn).localeCompare(String(a.acquiredOn)));
 }
 
-const monthTotal = (key) => state.receipts.filter((r) => ym(r.date) === key).reduce((s, r) => s + businessAmount(r), 0);
+// 経費の明細（分けた領収書は科目ごと・委託料から天引きされた費用を含む）
+const allExpenses = () => expenseItems({ receipts: state.receipts, sales: state.sales, settings: state.settings });
+const monthTotal = (key) => allExpenses().filter((r) => ym(r.date) === key).reduce((s, r) => s + businessAmount(r), 0);
 const pending = () => state.receipts.filter((r) => r.status !== 'confirmed');
 
 function monthKey(offset = 0) {
@@ -242,16 +246,21 @@ function yearReceipts(year) {
   return state.receipts.filter((r) => String(r.date).startsWith(String(year)));
 }
 
+function yearExpenses(year) {
+  return allExpenses().filter((r) => String(r.date).startsWith(String(year)));
+}
+
 function categoryTotals(items) {
   const totals = {};
-  for (const r of items) totals[r.category || 'none'] = (totals[r.category || 'none'] || 0) + businessAmount(r);
+  for (const r of items.flatMap(expandReceipt)) totals[r.category || 'none'] = (totals[r.category || 'none'] || 0) + businessAmount(r);
   return totals;
 }
 
 function viewSummary() {
   const year = state.summaryYear;
   const items = yearReceipts(year);
-  const total = items.reduce((s, r) => s + businessAmount(r), 0);
+  const expenses = yearExpenses(year);
+  const total = expenses.reduce((s, r) => s + businessAmount(r), 0);
   const pend = items.filter((r) => r.status !== 'confirmed');
   const pendTotal = pend.reduce((s, r) => s + businessAmount(r), 0);
   const months = Array.from({ length: 12 }, (_, i) => monthTotal(`${year}-${String(i + 1).padStart(2, '0')}`));
@@ -259,7 +268,7 @@ function viewSummary() {
   const current = monthKey(0);
   const activeMonths = months.filter((v) => v > 0).length;
 
-  const totals = categoryTotals(items);
+  const totals = categoryTotals(expenses);
   const cats = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
   const top = Math.max(1, ...Object.values(totals));
 
@@ -311,6 +320,35 @@ function field(label, name, input, conf) {
   </label>`;
 }
 
+// 経費にできないもの・所得控除になるものの注意
+function warningBox(d) {
+  const w = deductibilityWarning(d.vendor, d.memo, d.isNew ? d.ocrRaw : '');
+  if (!w) return '';
+  return `<div class="warn-box${w.level === 'ng' ? ' is-ng' : ''}">${svg(ICON.alert, 18, 2)}<div><b>${h(w.title)}</b><br>${h(w.body)}</div></div>`;
+}
+
+// 1枚の領収書を科目ごとに分ける（車検：重量税・自賠責・印紙・整備代など）
+function splitEditor(d) {
+  const splits = d.splits || [];
+  if (!splits.length) {
+    return `<button type="button" class="btn-text" data-action="split-start">${svg('<path d="M6 3v6a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v6M6 21v-6"/>', 16, 2)}科目ごとに分ける（車検など）</button>`;
+  }
+  const sum = splits.reduce((t, x) => t + (Number(x.amount) || 0), 0);
+  const rest = (Number(d.amount) || 0) - sum;
+  return `<div class="card split-box">
+    <div class="card-title">科目ごとに分ける</div>
+    ${splits.map((x, i) => `<div class="split-row">
+      <select data-split-cat="${i}" aria-label="${i + 1}行目の科目">${CATEGORIES.map((c) => `<option value="${c.id}"${x.category === c.id ? ' selected' : ''}>${h(c.name)}</option>`).join('')}</select>
+      <span class="yen-input small"><input type="text" inputmode="numeric" data-split-amount="${i}" value="${x.amount ? num(x.amount) : ''}" placeholder="0" aria-label="${i + 1}行目の金額"><span>円</span></span>
+      <button type="button" class="icon-btn plain" data-action="split-remove" data-value="${i}" aria-label="${i + 1}行目を削除">${svg(ICON.close, 16, 2)}</button>
+    </div>`).join('')}
+    <div class="row-between"><button type="button" class="btn-small ghost" data-action="split-add">＋ 行を追加</button>
+      <span class="${rest === 0 ? 'muted' : 'warn-text'} small">${rest === 0 ? '合計が一致しています' : rest > 0 ? `あと ${yen(rest)}` : `${yen(-rest)} 多いです`}</span></div>
+    <p class="muted small">例：車検なら「租税公課（重量税・印紙）」「損害保険料（自賠責）」「修繕費（整備代）」。仕事で使った割合は全部の行に同じ割合を使います。</p>
+    <button type="button" class="btn-text" data-action="split-cancel">分けるのをやめる</button>
+  </div>`;
+}
+
 function viewForm() {
   const d = state.draft;
   if (!d) { location.hash = '#/home'; return ''; }
@@ -352,13 +390,15 @@ function viewForm() {
 
     <section class="section">
       <div class="section-head"><h2>勘定科目</h2>${d.matched ? `<span class="muted">「${h(d.matched)}」から提案</span>` : ''}</div>
-      <div class="chips">${cands.map((id) => `<button type="button" class="chip" data-action="pick-cat" data-value="${id}" aria-pressed="${d.category === id}">${h(categoryName(id))}${id === d.suggested ? '（おすすめ）' : ''}</button>`).join('')}</div>
+      ${d.splits && d.splits.length ? '' : `<div class="chips">${cands.map((id) => `<button type="button" class="chip" data-action="pick-cat" data-value="${id}" aria-pressed="${d.category === id}">${h(categoryName(id))}${id === d.suggested ? '（おすすめ）' : ''}</button>`).join('')}</div>
       <select class="select-full" data-field="category" aria-label="その他の科目から選ぶ">
         <option value="">その他の科目から選ぶ</option>
         ${CATEGORIES.map((c) => `<option value="${c.id}"${d.category === c.id ? ' selected' : ''}>${h(c.name)}（${h(c.hint)}）</option>`).join('')}
-      </select>
+      </select>`}
       ${d.category === 'misc' ? `<div class="warn-box">${svg(ICON.alert, 18, 2)}<div><b>雑費にする前に確認</b><br>ほかの科目（車両費・消耗品費・通信費など）に当てはまりませんか？雑費が多いと税務署から確認されやすくなります。</div></div>` : ''}
-      ${d.amount >= 100000 ? `<div class="warn-box">${svg(ICON.alert, 18, 2)}<div><b>10万円以上の買い物です</b><br>車両やパソコンなどの長く使うものは「減価償却」が必要になる場合があります（次のアップデートで対応予定）。</div></div>` : ''}
+      ${d.amount >= 100000 && !(d.splits && d.splits.length) ? `<div class="warn-box">${svg(ICON.alert, 18, 2)}<div><b>10万円以上の買い物です</b><br>車両やパソコンなどの長く使うものは、領収書ではなく<a href="#/assets">「固定資産」</a>に登録してください（減価償却で数年に分けて経費にします）。車検など、いくつかの科目が混ざった領収書は下の「科目ごとに分ける」を使ってください。</div></div>` : ''}
+      ${warningBox(d)}
+      ${splitEditor(d)}
     </section>
 
     <div class="card fields">
@@ -483,6 +523,15 @@ function viewSettings() {
     </section>
 
     <section class="section">
+      <h2>入力をラクにする</h2>
+      <div class="card list">
+        <a class="link-row" href="#/fixed">${svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 15h3"/>', 20)}<span class="grow"><b>毎月の固定費</b><span class="muted small">スマホ代・駐車場・リース代を毎月自動で登録${(s.recurring || []).length ? `（${s.recurring.length}件）` : ''}</span></span>${svg(ICON.next, 16, 2)}</a>
+        <button type="button" class="link-row" data-action="etc-import">${svg('<path d="M3 17h18M5 17V9l7-4 7 4v8M9 17v-4h6v4"/>', 20)}<span class="grow"><b>ETC利用明細を取り込む</b><span class="muted small">ETC利用照会サービスのCSVから高速代をまとめて登録</span></span>${svg(ICON.next, 16, 2)}</button>
+        <a class="link-row" href="#/mileage">${svg('<circle cx="12" cy="13" r="8"/><path d="M12 13l4-4M12 5V3"/>', 20)}<span class="grow"><b>走行距離で割合を計算</b><span class="muted small">車を私用でも使う方向け</span></span>${svg(ICON.next, 16, 2)}</a>
+      </div>
+    </section>
+
+    <section class="section">
       <h2>仕事で使った割合の初期値</h2>
       <div class="card list">
         ${CATEGORIES.map((c) => `<label class="ratio-row"><span>${h(c.name)}<small>${h(c.hint)}</small></span>
@@ -530,10 +579,10 @@ async function render() {
   }
   if ((view === 'form' || view === 'edit') && !state.draft) { location.hash = '#/home'; return; }
   if (view !== 'form' && view !== 'edit') discardDraft();
-  const redirect = p2.prepare(view, param, query);
+  const redirect = p2.prepare(view, param, query) || ex.prepare(view, param);
   if (redirect) { location.hash = redirect; return; }
 
-  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views, ...p4.views, ...ct.views };
+  const views = { home: viewHome, list: viewList, summary: viewSummary, settings: viewSettings, form: viewForm, edit: viewForm, ...p2.views, ...p3.views, ...p4.views, ...ct.views, ...ex.views };
   app().innerHTML = (views[view] || viewHome)();
   document.title = '確サポ';
   if (state.scrollTop === false) state.scrollTop = true;
@@ -555,7 +604,7 @@ function baseDraft() {
     date: todayISO(), vendor: '', amount: 0, taxRate: 'unknown', taxAmount: null, invoiceNo: '',
     category: '', suggested: '', categoryConfidence: 0, candidates: suggestCategory('', '').candidates, matched: '',
     paymentMethod: 'cash', businessRatio: 100, ratioTouched: false, memo: '', status: 'unconfirmed',
-    ocrRaw: '', ocrError: '', conf: {}, createdAt: '', phone: ''
+    ocrRaw: '', ocrError: '', conf: {}, createdAt: '', phone: '', splits: []
   };
 }
 
@@ -644,7 +693,7 @@ function handleFiles(fileList) {
 async function loadDraftFromReceipt(id) {
   const r = await db.getReceipt(id);
   if (!r) { state.draft = null; return; }
-  const d = { ...baseDraft(), ...r, isNew: false, hasImage: Boolean(r.imageId), conf: {}, ratioTouched: true };
+  const d = { ...baseDraft(), ...r, isNew: false, hasImage: Boolean(r.imageId), conf: {}, ratioTouched: true, splits: (r.splits || []).map((x) => ({ ...x })) };
   const sug = suggestCategory(r.ocrRaw || '', r.vendor, {});
   d.candidates = sug.candidates;
   d.suggested = '';
@@ -669,8 +718,11 @@ async function saveDraft(final) {
     if (!d.date) missing.push('日付');
     if (!String(d.vendor).trim()) missing.push('支払先');
     if (!(d.amount > 0)) missing.push('金額');
-    if (!d.category) missing.push('勘定科目');
+    if (!d.category && !(d.splits && d.splits.length)) missing.push('勘定科目');
     if (missing.length) { toast(`${missing.join('・')}を入力してください`); return; }
+    if (d.splits && d.splits.length && !splitsValid({ amount: d.amount, splits: d.splits })) { toast('分けた金額の合計を、領収書の金額に合わせてください'); return; }
+    const w = deductibilityWarning(d.vendor, d.memo);
+    if (w && !window.confirm(`${w.title}\n${w.body}\n\nそれでも経費として確定しますか？`)) return;
     if (d.category === 'misc' && !window.confirm('雑費で確定しますか？\nほかの科目に当てはまらない場合だけ雑費にしてください。')) return;
   }
   const now = new Date().toISOString();
@@ -692,6 +744,7 @@ async function saveDraft(final) {
     paymentMethod: d.paymentMethod,
     businessRatio: Math.max(0, Math.min(100, Number(d.businessRatio))),
     memo: d.memo,
+    splits: d.splits && d.splits.length >= 2 ? d.splits.map((x) => ({ category: x.category, amount: Number(x.amount) || 0 })) : undefined,
     imageId,
     status: final ? 'confirmed' : 'unconfirmed',
     ocrRaw: d.ocrRaw,
@@ -699,8 +752,10 @@ async function saveDraft(final) {
     createdAt: d.createdAt || now,
     updatedAt: now
   };
+  if (record.splits) record.category = [...record.splits].sort((a, b) => b.amount - a.amount)[0].category;
+  else delete record.splits;
   await db.putReceipt(record);
-  if (final && record.vendor && record.category) {
+  if (final && !record.splits && record.vendor && record.category) {
     state.settings.vendorMap[vendorKey(record.vendor)] = record.category;
     if (record.phone) state.settings.phoneMap[record.phone] = record.vendor;
     await db.saveSettings(state.settings);
@@ -758,6 +813,19 @@ const actions = {
   'summary-view': (el) => { state.summaryView = el.dataset.value; state.scrollTop = false; render(); },
   'filing-type': async (el) => { state.settings.filingType = el.dataset.value; await db.saveSettings(state.settings); state.scrollTop = false; render(); },
   'pick-cat': (el) => setCategory(el.dataset.value),
+  'split-start': () => {
+    const d = state.draft;
+    d.splits = [{ category: d.category || 'repair', amount: d.amount || 0 }, { category: 'taxes', amount: 0 }];
+    rerender();
+  },
+  'split-add': () => { state.draft.splits.push({ category: 'misc', amount: 0 }); rerender(); },
+  'split-remove': (el) => {
+    const d = state.draft;
+    d.splits.splice(Number(el.dataset.value), 1);
+    if (d.splits.length < 2) { d.category = d.splits[0] ? d.splits[0].category : d.category; d.splits = []; }
+    rerender();
+  },
+  'split-cancel': () => { state.draft.splits = []; rerender(); },
   'save-confirm': () => saveDraft(true),
   'save-later': () => saveDraft(false),
   'form-cancel': () => {
@@ -843,7 +911,7 @@ function bindEvents() {
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
     if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return;
-    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action] || p4.actions[el.dataset.action] || ct.actions[el.dataset.action];
+    const fn = actions[el.dataset.action] || p2.actions[el.dataset.action] || p3.actions[el.dataset.action] || p4.actions[el.dataset.action] || ct.actions[el.dataset.action] || ex.actions[el.dataset.action];
     if (fn) { e.preventDefault(); fn(el); }
   });
   document.addEventListener('input', (e) => {
@@ -851,6 +919,9 @@ function bindEvents() {
     if (el.dataset.field && el.dataset.field !== 'category') onFieldInput(el);
     if (el.dataset.sale) p2.onSaleInput(el);
     if (el.dataset.asset) p2.onAssetInput(el, false);
+    if (el.dataset.rec) ex.onRecInput(el);
+    if (el.dataset.splitAmount && state.draft) state.draft.splits[Number(el.dataset.splitAmount)].amount = toInt(el.value);
+    if (el.dataset.ded) p2.onDedInput(el);
     // 日本語の変換中（未確定）は待つ。確定したら結果の一覧だけを描き直す
     if (el.dataset.action === 'list-query' && !e.isComposing) updateListResults(el.value);
   });
@@ -860,6 +931,11 @@ function bindEvents() {
   document.addEventListener('change', async (e) => {
     const el = e.target;
     if (el.dataset.asset) { if (p2.onAssetInput(el, true)) rerender(); return; }
+    if (el.dataset.mile) { await ex.onMileageInput(el); return; }
+    if (el.dataset.splitAmount) { rerender(); return; }
+    if (el.dataset.splitCat && state.draft) { state.draft.splits[Number(el.dataset.splitCat)].category = el.value; return; }
+    if (el.dataset.ded) { p2.onDedInput(el); rerender(); return; }
+    if (el.dataset.dmemo) { await p4.onMemoInput(el); return; }
     if (el.dataset.field === 'category') onFieldInput(el);
     else if (el.dataset.field === 'amount' || el.dataset.field === 'invoiceNo') { onFieldInput(el); state.scrollTop = false; render(); }
     else if (el.dataset.action === 'list-month') { state.listMonth = el.value; state.scrollTop = false; render(); }
@@ -899,6 +975,12 @@ function bindEvents() {
   });
   $('#viewer').addEventListener('click', () => { $('#viewer').hidden = true; });
   window.addEventListener('hashchange', render);
+  // 月が変わってから開いたときに、毎月の固定費を登録する
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || !termsAccepted()) return;
+    const added = await ex.materializeRecurring();
+    if (added) { await reload(); toast(`毎月の固定費を${added}件登録しました`); rerender(); }
+  });
 }
 
 /* ---------- アップデートの確認と通知 ---------- */
@@ -926,23 +1008,26 @@ let p2 = null;
 let p3 = null;
 let p4 = null;
 let ct = null;
+let ex = null;
 
 async function start() {
   const ctx = {
     state, svg, ICON, h, yen, num, segmented, nav, db, toast, newId, todayISO, longDate,
-    yearReceipts, categoryTotals, yearsWithData, reload, rerender, render
+    yearReceipts, yearExpenses, categoryTotals, yearsWithData, reload, rerender, render
   };
   p2 = createPhase2(ctx);
   const ctx3 = { ...ctx, figures: p2.figures };
   p3 = createPhase3(ctx3);
   p4 = createPhase4({ ...ctx, figures: p2.figures, books: p3.books });
   ct = createCtax(ctx);
+  ex = createExtras(ctx);
   ctx.ctaxStep = ct.stepFor;
   ctx.journalCount = p3.journalCount;
   ctx.balanceSheet = p4.balanceSheet;
   ctx.bsHtml = p4.bsHtml;
   ctx3.bsPrintHtml = p4.bsPrintHtml;
   await reload();
+  if (await ex.materializeRecurring()) await reload();
   bindEvents();
   await render();
   setupUpdates();

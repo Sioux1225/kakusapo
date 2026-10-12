@@ -5,6 +5,9 @@
 //         事業用の口座・カードを使っている設定で、支払方法が口座・カード・電子マネーなら「／ 普通預金」
 // - 売上：対象月の末日に「売掛金 ／ 売上」、入金日に「普通預金（個人の口座なら事業主貸） ／ 売掛金」。
 //         対象月の中で入金された場合は「普通預金 ／ 売上」の1本にまとめる
+// - 天引き：委託料から差し引かれた費用は、対象月の末日に「経費の科目 ／ 売掛金」（私用分は「事業主貸 ／ 売掛金」）。
+//         入金の仕訳は差し引かれた後の金額
+// - 1枚の領収書を科目ごとに分けた場合は、科目ごとに仕訳する
 // - 固定資産：使い始めた日に「車両運搬具など ／ 事業主借（事業用の口座なら普通預金）」
 // - 減価償却：12月31日に「減価償却費 ／ 車両運搬具など」、私用分は「事業主貸 ／ 減価償却費」で戻す
 // - 期首（1月1日）の残高：普通預金・売掛金・固定資産の帳簿価額。元入金はその合計（負債はない前提）
@@ -12,6 +15,7 @@
 import { CATEGORY_MAP } from './categories.js';
 import { schedule, methodOf } from './depreciation.js';
 import { businessAmount } from './format.js';
+import { expandReceipt, deductionTotal } from './expenses.js';
 
 // 借方が増えると残高が増える科目（資産・費用・事業主貸）。それ以外は貸方で増える
 const CREDIT_NORMAL = new Set(['売上', '事業主借', '元入金', '未払金']);
@@ -42,7 +46,7 @@ export function openingBalances({ year, sales = [], assets = [], settings = {} }
   const bank = Number((settings.openingBank || {})[year]) || 0;
   const receivable = sales
     .filter((s) => yearOf(s.month + '-01') < year && yearOf(s.date) >= year && lastDayOf(s.month) < s.date)
-    .reduce((t, s) => t + (Number(s.amount) || 0), 0);
+    .reduce((t, s) => t + (Number(s.amount) || 0) - deductionTotal(s), 0);
   const out = {};
   if (bank) out['普通預金'] = bank;
   if (receivable) out['売掛金'] = receivable;
@@ -70,10 +74,10 @@ export function buildJournal({ year, receipts = [], sales = [], assets = [], set
   };
 
   // 経費（領収書）
-  for (const r of receipts) {
+  for (const r of receipts.flatMap(expandReceipt)) {
     if (yearOf(r.date) !== year) continue;
     const ratio = r.businessRatio == null ? 100 : Number(r.businessRatio);
-    const memo = `${r.vendor || '（支払先なし）'}${ratio < 100 ? `（事業分${ratio}%）` : ''}${r.status !== 'confirmed' ? ' ※未確認' : ''}`;
+    const memo = `${r.vendor || '（支払先なし）'}${r.parentId ? `（${nameOf(r.category)}分）` : ''}${ratio < 100 ? `（事業分${ratio}%）` : ''}${r.status !== 'confirmed' ? ' ※未確認' : ''}`;
     const fromBank = bizPay && ['bank', 'card', 'emoney'].includes(r.paymentMethod);
     add(r.date, memo, nameOf(r.category), fromBank ? '普通預金' : '事業主借', businessAmount(r), { type: 'receipt', id: r.id });
   }
@@ -86,12 +90,26 @@ export function buildJournal({ year, receipts = [], sales = [], assets = [], set
     const end = lastDayOf(month);
     const paidTo = s.to === 'private' ? '事業主貸' : '普通預金';
     const sameMonth = s.date && s.date <= end && s.date.slice(0, 7) === month;
+    const net = amount - deductionTotal(s);
+    const label = `${client} ${Number(month.slice(5))}月分`;
     if (yearOf(end) === year) {
-      if (sameMonth) add(s.date, `${client} ${Number(month.slice(5))}月分`, paidTo, '売上', amount, { type: 'sale', id: s.id });
-      else add(end, `${client} ${Number(month.slice(5))}月分（未入金）`, '売掛金', '売上', amount, { type: 'sale', id: s.id });
+      if (sameMonth) add(s.date, label, paidTo, '売上', net, { type: 'sale', id: s.id });
+      else add(end, `${label}（未入金）`, '売掛金', '売上', amount, { type: 'sale', id: s.id });
+      // 天引き（同じ月に入金されたときは売上から直接）
+      const date = sameMonth ? s.date : end;
+      const from = sameMonth ? '売上' : '売掛金';
+      for (const d of s.deductions || []) {
+        const v = Number(d.amount) || 0;
+        if (!v || !d.category) continue;
+        const ratio = d.businessRatio ?? (settings.ratios || {})[d.category] ?? 100;
+        const biz = businessAmount({ amount: v, businessRatio: ratio });
+        const memo = `${label}から天引き${d.memo ? `：${d.memo}` : ''}${ratio < 100 ? `（事業分${ratio}%）` : ''}`;
+        add(date, memo, nameOf(d.category), from, biz, { type: 'sale', id: s.id });
+        add(date, `${label}から天引き（私用分）`, '事業主貸', from, v - biz, { type: 'sale', id: s.id });
+      }
     }
     if (!sameMonth && s.date && yearOf(s.date) === year) {
-      add(s.date, `${client} ${Number(month.slice(5))}月分の入金`, paidTo, '売掛金', amount, { type: 'sale', id: s.id });
+      add(s.date, `${label}の入金`, paidTo, '売掛金', net, { type: 'sale', id: s.id });
     }
   }
 

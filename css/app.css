@@ -506,3 +506,22 @@ a.btn-outline { text-decoration: none; color: var(--ink); }
 .notice.link { text-decoration: none; color: var(--orange-deep); }
 details.more { padding: 0; }
 details.more summary { padding: 12px 16px; font-size: 13px; color: var(--sub); cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+
+/* v0.6：分割・天引き・注意・入力をラクにする */
+.split-box { padding: 12px 14px; display: grid; gap: 10px; }
+.split-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; align-items: center; gap: 6px; }
+.split-row select, .split-row input, .memo-input input { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; background: var(--card); font-size: 16px; font-weight: 600; }
+.split-row select { width: 100%; min-width: 0; }
+.split-row .yen-input { gap: 4px; }
+.split-row .yen-input.small input { width: 88px; }
+.split-row select:focus, .split-row input:focus, .memo-input input:focus { outline: 2px solid var(--orange); border-color: transparent; }
+.split-row .icon-btn { width: 36px; height: 36px; flex: none; }
+.warn-box.is-ng { background: #FDECEC; color: #B3261E; }
+.warn-box a { color: inherit; font-weight: 700; }
+small.block { display: block; font-size: 12px; }
+button.link-row { width: 100%; background: transparent; border: none; border-top: 1px solid var(--line-soft); font: inherit; text-align: left; cursor: pointer; }
+button.link-row:first-child { border-top: none; }
+.memo-input input { width: 96px; }
+.btn-text svg { vertical-align: -3px; margin-right: 4px; }
+.tr-copy.icon-only { min-width: 44px; width: 44px; padding: 0; justify-content: center; flex: none; }
+.tr-row .memo-input { flex: none; }

@@ -1,7 +1,7 @@
 // オフラインでも開けるようにアプリのファイルを保存する。
 // アプリのファイルは「ネット優先」：つながるときは常に最新版を取り、つながらないときだけ保存した版を使う。
 // アプリを更新したら VERSION を変えること（sw.js が変わったことでブラウザが更新に気づき、画面に通知が出る）。
-const VERSION = 'kakusapo-v0.5.0';
+const VERSION = 'kakusapo-v0.6.0';
 const RUNTIME = 'kakusapo-runtime';
 const SHELL = [
   './',
@@ -21,6 +21,10 @@ const SHELL = [
   './js/phase4.js',
   './js/ctax.js',
   './js/ctax-view.js',
+  './js/expenses.js',
+  './js/recurring.js',
+  './js/etc.js',
+  './js/extras.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',

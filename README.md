@@ -22,6 +22,10 @@
 | `js/phase3.js` | 帳簿の画面・印刷用（A4・PDF保存）・CSV書き出し |
 | `js/phase4.js` | 貸借対照表・作成コーナーへの転記ガイド |
 | `js/depreciation.js` | 減価償却の計算（定額法・一括償却・少額特例・中古の簡便法） |
+| `js/expenses.js` | 経費の明細（1枚の領収書の科目ごとの分割・委託料からの天引き） |
+| `js/recurring.js` | 毎月の固定費の支払日と、自動で登録する領収書データ |
+| `js/etc.js` | ETC利用明細（CSV・Shift_JIS）の読み取り |
+| `js/extras.js` | 毎月の固定費・ETC明細の取り込み・走行距離から割合を計算する画面 |
 | `js/db.js` | 端末内データベース（IndexedDB） |
 | `js/backup.js` | バックアップ・復元・CSV書き出し |
 | `sw.js` / `manifest.webmanifest` | オフライン対応・ホーム画面への追加 |

@@ -2,7 +2,8 @@
 // app.js から共通の部品（ctx）を受け取って画面と操作を返す。
 
 import { schedule, forYear, methodOf, lifeOf, METHOD_LABEL } from './depreciation.js';
-import { CATEGORIES } from './categories.js';
+import { CATEGORIES, categoryName } from './categories.js';
+import { deductionTotal } from './expenses.js';
 
 export function createPhase2(ctx) {
   const { state, svg, ICON, h, yen, num, segmented, nav, db, toast, newId, todayISO, longDate } = ctx;
@@ -16,7 +17,7 @@ export function createPhase2(ctx) {
 
   function figures(year) {
     const receipts = ctx.yearReceipts(year);
-    const byCat = ctx.categoryTotals(receipts);
+    const byCat = ctx.categoryTotals(ctx.yearExpenses(year));
     const expenseReceipts = Object.values(byCat).reduce((a, b) => a + b, 0);
     const dep = depreciationOf(year);
     const sales = salesTotal(year);
@@ -145,7 +146,7 @@ export function createPhase2(ctx) {
       ${with65 ? segmented('決算書の種類', [['pl', '損益計算書'], ['bs', '貸借対照表']], bsView ? 'bs' : 'pl', 'statement-view') : ''}
       ${bsView ? ctx.bsHtml(year) : `<section class="card form-card">
         <div class="form-card-head"><b>${blue ? '青色申告決算書（一般用）1ページ目' : '収支内訳書（一般用）1ページ目'}</b>
-          <span>${blue ? '丸数字は決算書の欄番号です。㉕・㉖は空欄に科目名を書いて追加します' : '同じ名前の欄に金額を書き写します'}</span></div>
+          <span>${blue ? '丸数字は決算書の欄番号です。㉕〜㉘は空欄に科目名を書いて追加します' : '同じ名前の欄に金額を書き写します'}</span></div>
         ${line(blue ? '① 売上（収入）金額' : '売上（収入）金額', f.sales, 'strong')}
         ${rows.length ? rows.map((r) => `<div class="form-row">
           <span class="no${blue ? '' : ' plain'}">${blue ? r.no : '・'}</span>
@@ -186,6 +187,8 @@ export function createPhase2(ctx) {
       date: `${pay}-${String(Math.min(day, lastDay)).padStart(2, '0')}`,
       amount: last ? last.amount : 0,
       to: last ? last.to : 'biz',
+      // 天引きは毎月同じことが多いので、先月の内容を引き継ぐ
+      deductions: last && last.deductions ? last.deductions.map((x) => ({ ...x })) : [],
       memo: '',
       prefilled: Boolean(last)
     };
@@ -215,10 +218,29 @@ export function createPhase2(ctx) {
           if (!list.length) {
             return `<a class="sale-row" href="#/sale/new?month=${m}"><span class="sale-month">${monthName(m)}</span><span class="muted grow"></span>${expected.has(m) ? '<span class="badge warn">未入力</span>' : '<span class="muted small">—</span>'}</a>`;
           }
-          return list.map((s, i) => `<a class="sale-row" href="#/sale/${encodeURIComponent(s.id)}"><span class="sale-month">${i === 0 ? monthName(m) : ''}</span><span class="muted grow">${h(s.client || '取引先なし')}</span><b>${yen(s.amount)}</b></a>`).join('');
+          return list.map((s, i) => `<a class="sale-row" href="#/sale/${encodeURIComponent(s.id)}"><span class="sale-month">${i === 0 ? monthName(m) : ''}</span><span class="muted grow">${h(s.client || '取引先なし')}${deductionTotal(s) ? `<small class="block">天引き ${yen(deductionTotal(s))}</small>` : ''}</span><b>${yen(s.amount)}</b></a>`).join('');
         }).join('')}
       </section>
     </main>`;
+  }
+
+  // 委託料から差し引かれた費用（車両リース代・保険料・燃料代・事務手数料など）
+  function deductionEditor(d) {
+    const list = d.deductions || [];
+    const total = deductionTotal(d);
+    return `<section class="section">
+      <h2>委託料から天引きされた費用</h2>
+      <p class="muted small">支払通知書で、リース代・保険料・燃料代・手数料などが差し引かれている場合に入力します。経費として自動で記録します。</p>
+      ${list.length ? `<div class="card split-box">${list.map((x, i) => `<div class="split-row">
+        <select data-ded="category" data-i="${i}" aria-label="${i + 1}行目の科目">${CATEGORIES.map((c) => `<option value="${c.id}"${x.category === c.id ? ' selected' : ''}>${h(c.name)}</option>`).join('')}</select>
+        <span class="yen-input small"><input type="text" inputmode="numeric" data-ded="amount" data-i="${i}" value="${x.amount ? num(x.amount) : ''}" placeholder="0" aria-label="${i + 1}行目の金額"><span>円</span></span>
+        <button type="button" class="icon-btn plain" data-action="ded-remove" data-value="${i}" aria-label="${i + 1}行目を削除">${svg(ICON.close, 16, 2)}</button>
+      </div>`).join('')}
+        <div class="kv"><span>実際の入金額</span><b>${yen((Number(d.amount) || 0) - total)}</b></div>
+      </div>` : ''}
+      <button type="button" class="btn-small ghost" data-action="ded-add">＋ 天引きされた費用を追加</button>
+      ${list.length ? `<p class="muted small">仕事で使った割合は、${h(categoryName(list[0].category))} ${list[0].businessRatio ?? state.settings.ratios[list[0].category] ?? 100}% のように、設定の初期値を使います。</p>` : ''}
+    </section>`;
   }
 
   function viewSaleForm() {
@@ -227,7 +249,7 @@ export function createPhase2(ctx) {
     const biz = d.to !== 'private';
     return `<main class="screen form">
       ${back('#/sales')}<h1>${d.isNew ? '売上の入力' : '売上の詳細'}</h1></header>
-      ${d.isNew && d.prefilled ? `<div class="notice"><div>先月と同じ取引先・金額を入れています。<b>入金額が違えば直してください。</b></div></div>` : ''}
+      ${d.isNew && d.prefilled ? `<div class="notice"><div>先月と同じ取引先・金額${d.deductions && d.deductions.length ? '・天引き' : ''}を入れています。<b>今月の支払通知書と違えば直してください。</b></div></div>` : ''}
       <div class="card fields">
         <label class="field"><span class="field-label">取引先</span>
           <input type="text" data-sale="client" value="${h(d.client)}" list="client-list" placeholder="例：A運送" autocomplete="off">
@@ -236,9 +258,10 @@ export function createPhase2(ctx) {
           <label><span class="field-label">何月分の売上か</span><input type="month" data-sale="month" value="${h(d.month)}"></label>
           <label><span class="field-label">入金日</span><input type="date" data-sale="date" value="${h(d.date)}"></label>
         </div>
-        <label class="field"><span class="field-label">売上の金額（税込）</span>
+        <label class="field"><span class="field-label">売上の金額（税込・天引きされる前の委託料）</span>
           <span class="yen-input"><input type="text" inputmode="numeric" data-sale="amount" value="${d.amount ? num(d.amount) : ''}" placeholder="0"><span>円</span></span></label>
       </div>
+      ${deductionEditor(d)}
       <section class="section">
         <h2>どこに入金されましたか？</h2>
         ${segmented('入金先', [['biz', '事業用の口座'], ['private', '個人の口座・現金']], biz ? 'biz' : 'private', 'sale-to')}
@@ -342,6 +365,16 @@ export function createPhase2(ctx) {
     return Number.isFinite(n) ? n : 0;
   };
 
+  function onDedInput(el) {
+    const d = state.saleDraft;
+    if (!d) return;
+    const row = d.deductions[Number(el.dataset.i)];
+    if (!row) return;
+    if (el.dataset.ded === 'amount') row.amount = toInt(el.value);
+    else { row.category = el.value; delete row.businessRatio; }
+    d.touched = true;
+  }
+
   function onSaleInput(el) {
     const d = state.saleDraft;
     if (!d) return;
@@ -369,15 +402,23 @@ export function createPhase2(ctx) {
       ctx.rerender();
     },
     'statement-view': (el) => { state.statementView = el.dataset.value; ctx.rerender(); },
+    'ded-add': () => {
+      const d = state.saleDraft;
+      d.deductions = [...(d.deductions || []), { category: 'lease', amount: 0 }];
+      ctx.rerender();
+    },
+    'ded-remove': (el) => { state.saleDraft.deductions.splice(Number(el.dataset.value), 1); ctx.rerender(); },
     'sale-to': (el) => { state.saleDraft.to = el.dataset.value; ctx.rerender(); },
     'save-sale': async () => {
       const d = state.saleDraft;
       if (!/^\d{4}-\d{2}$/.test(d.month || '')) { toast('何月分の売上かを入力してください'); return; }
       if (!(d.amount > 0)) { toast('売上の金額を入力してください'); return; }
+      const deductions = (d.deductions || []).filter((x) => x.category && Number(x.amount) > 0).map((x) => ({ category: x.category, amount: Number(x.amount), businessRatio: x.businessRatio ?? state.settings.ratios[x.category] ?? 100 }));
+      if (deductions.reduce((t, x) => t + x.amount, 0) > d.amount) { toast('天引きの合計が売上の金額を超えています'); return; }
       const now = new Date().toISOString();
       await db.putSale({
         id: d.id, client: String(d.client || '').trim(), month: d.month, date: d.date, amount: d.amount,
-        to: d.to === 'private' ? 'private' : 'biz', memo: d.memo || '', createdAt: d.createdAt || now, updatedAt: now
+        to: d.to === 'private' ? 'private' : 'biz', memo: d.memo || '', deductions, createdAt: d.createdAt || now, updatedAt: now
       });
       state.taxYear = Number(d.month.slice(0, 4));
       await ctx.reload();
@@ -432,7 +473,7 @@ export function createPhase2(ctx) {
       } else if (!state.saleDraft || state.saleDraft.id !== param) {
         const s = state.sales.find((x) => x.id === param);
         if (!s) return '#/sales';
-        state.saleDraft = { ...s, isNew: false };
+        state.saleDraft = { ...s, isNew: false, deductions: (s.deductions || []).map((x) => ({ ...x })) };
       }
     } else if (view === 'asset') {
       if (param === 'new') {
@@ -454,6 +495,7 @@ export function createPhase2(ctx) {
     actions,
     prepare,
     onSaleInput,
+    onDedInput,
     onAssetInput,
     figures
   };

@@ -9,6 +9,7 @@
 // どれも「目安」。端数処理や地方消費税の計算は作成コーナーに任せる。売上・経費はどちらも税込で記録している前提。
 
 import { businessAmount } from './format.js';
+import { expenseItems } from './expenses.js';
 
 // 消費税がかからない経費の科目（税金・保険料）
 const NON_TAXABLE = new Set(['taxes', 'insurance']);
@@ -45,23 +46,25 @@ export function receiptInputTax(r) {
   } else {
     tax = taxIn(amount, r.taxRate === '8' ? 8 : 10);
   }
-  return isInvoice(r.invoiceNo) ? tax : Math.floor(tax * transitionalRate(String(r.date)));
+  return r.invoiceOk || isInvoice(r.invoiceNo) ? tax : Math.floor(tax * transitionalRate(String(r.date)));
 }
 
 // その年の計算
-export function compareMethods({ year, receipts = [], sales = [], assets = [], filingType }) {
+export function compareMethods({ year, receipts = [], sales = [], assets = [], filingType, settings = {} }) {
   const yearSales = sales.filter((s) => String(s.month).startsWith(String(year)));
   const salesTotal = yearSales.reduce((t, s) => t + (Number(s.amount) || 0), 0);
   const outputTax = taxIn(salesTotal, 10);
 
   // 経費の消費税（一般課税）
   let receiptTax = 0;
-  let noInvoiceCount = 0;
-  for (const r of receipts) {
+  const noInvoice = new Set();
+  // 分けた領収書は科目ごと、天引きされた費用も含める
+  for (const r of expenseItems({ receipts, sales, settings })) {
     if (!String(r.date).startsWith(String(year))) continue;
     receiptTax += receiptInputTax(r);
-    if (!NON_TAXABLE.has(r.category) && !isInvoice(r.invoiceNo)) noInvoiceCount++;
+    if (!NON_TAXABLE.has(r.category) && !r.invoiceOk && !isInvoice(r.invoiceNo)) noInvoice.add(r.parentId || r.id);
   }
+  const noInvoiceCount = noInvoice.size;
   // 車両などは、買った年にまとめて控除（事業で使う割合の分）
   let assetTax = 0;
   for (const a of assets) {

@@ -70,6 +70,16 @@ export function createPhase4(ctx) {
   /* ---------- 転記ガイド ---------- */
   const isBlue = () => state.settings.filingType !== 'white';
   const with65 = () => isBlue() && Number(state.settings.deduction) !== 10;
+  const memoOf = (year) => ((state.settings.deductionMemo || {})[year]) || {};
+  const DEDUCTION_MEMO = [
+    ['d-pension', '国民年金の保険料', '日本年金機構から届く「控除証明書」の金額'],
+    ['d-health', '国民健康保険の保険料', '市区町村から届く納付額のお知らせ・領収書の合計'],
+    ['d-life', '生命保険料（控除証明書）', '一般・介護医療・個人年金に分けて入力します'],
+    ['d-quake', '地震保険料（控除証明書）', ''],
+    ['d-small', '小規模企業共済・iDeCo の掛金', '控除証明書の金額'],
+    ['d-medical', '医療費（家族の分も合計）', '合計が10万円（所得が少ない方は所得の5%）を超えると控除できます'],
+    ['d-donation', 'ふるさと納税などの寄附', '受領証明書の合計。ワンストップ特例を使った方も申告書に入力が必要です']
+  ];
   const doneMap = (year) => ((state.settings.transferDone || {})[year]) || {};
 
   function steps(year) {
@@ -122,14 +132,9 @@ export function createPhase4(ctx) {
       { id: 'assets', title: '減価償却', intro: assetItems.length ? '「減価償却費の計算」の入力画面で、資産ごとに入力します。' : 'この年に計上する減価償却はありません。このステップは飛ばしてください。', items: assetItems },
       ...(with65() ? [{ id: 'bs', title: '貸借対照表', intro: '「貸借対照表」の入力画面で、1月1日（期首）と12月31日（期末）の金額を入力します。', items: bsItems }] : []),
       {
-        id: 'deductions', title: '所得控除', intro: '確サポでは記録していない項目です。手元の控除証明書や領収書を見て、作成コーナーに入力してください。',
-        items: [
-          { key: 'd-social', label: '社会保険料（国民年金・国民健康保険など）', checkOnly: true },
-          { key: 'd-life', label: '生命保険料・地震保険料（控除証明書）', checkOnly: true },
-          { key: 'd-small', label: '小規模企業共済・iDeCo の掛金', checkOnly: true },
-          { key: 'd-medical', label: '医療費（10万円を超えた場合など）', checkOnly: true },
-          { key: 'd-family', label: '配偶者・扶養家族', checkOnly: true }
-        ]
+        id: 'deductions', title: '所得控除', intro: '経費とは別に、所得から差し引ける項目です。手元の控除証明書や領収書の合計をメモしておくと、作成コーナーに入力するときに迷いません。',
+        items: DEDUCTION_MEMO.map(([key, label, hint]) => ({ key, label, hint, memo: true, value: memoOf(year)[key] || 0 }))
+          .concat([{ key: 'd-family', label: '配偶者・扶養家族（作成コーナーで入力）', checkOnly: true }])
       },
       {
         id: 'submit', title: '送信', intro: blue && with65() ? '65万円控除を受けるには、期限内に e-Tax で送信する必要があります。' : 'e-Tax で送信するか、印刷して税務署に提出します。',
@@ -154,6 +159,14 @@ export function createPhase4(ctx) {
     const count = step.items.filter((i) => done[i.key]).length;
 
     const item = (it) => {
+      if (it.memo) {
+        const v = Number(it.value) || 0;
+        return `<div class="tr-row${done[it.key] ? ' is-done' : ''}">
+          <span class="grow"><span class="tr-label">${h(it.label)}</span>${it.hint ? `<span class="muted small">${h(it.hint)}</span>` : ''}</span>
+          <span class="yen-input small memo-input"><input type="text" inputmode="numeric" data-dmemo="${h(it.key)}" value="${v ? num(v) : ''}" placeholder="なし" aria-label="${h(it.label)}の金額"><span>円</span></span>
+          ${v ? `<button type="button" class="tr-copy icon-only" data-action="transfer-copy" data-value="${h(it.key)}" data-copy="${v}" aria-label="${h(it.label)} ${yen(v)} ${done[it.key] ? '入力済み' : 'をコピー'}">${done[it.key] ? svg(ICON.check, 16, 2.6) : svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>', 15, 2)}</button>` : ''}
+        </div>`;
+      }
       if (it.checkOnly) {
         return `<button type="button" class="tr-check" data-action="transfer-toggle" data-value="${h(it.key)}" role="checkbox" aria-checked="${Boolean(done[it.key])}">
           <span class="box">${done[it.key] ? svg(ICON.check, 14, 3) : ''}</span><span class="grow">${h(it.label)}</span></button>`;
@@ -172,7 +185,7 @@ export function createPhase4(ctx) {
       <div class="tr-steps" role="tablist">${all.map((s, i) => `<button type="button" role="tab" class="tr-step${i === idx ? ' is-current' : ''}${i < idx ? ' is-past' : ''}" data-action="transfer-step" data-value="${s.id}" aria-selected="${i === idx}">
         <span class="bar"></span><span>${i + 1}. ${s.title}</span></button>`).join('')}</div>
       <div class="row-between"><b>ステップ ${idx + 1} / ${all.length}　${h(step.title)}</b><span class="muted small">${step.items.length ? `${count} / ${step.items.length} 完了` : ''}</span></div>
-      <div class="notice"><div>${h(step.intro)}${step.items.some((i) => !i.checkOnly) ? '<br>金額をタップするとコピーでき、入力済みの印が付きます。' : ''}</div></div>
+      <div class="notice"><div>${h(step.intro)}${step.items.some((i) => !i.checkOnly && !i.memo) ? '<br>金額をタップするとコピーでき、入力済みの印が付きます。' : ''}${step.items.some((i) => i.memo) ? '<br>金額を入れると、横のボタンでコピーできます。' : ''}</div></div>
       ${step.items.length ? `<section class="card list">${step.items.map(item).join('')}</section>` : ''}
       <div class="tr-actions">
         <a class="btn-outline" href="https://www.keisan.nta.go.jp/" target="_blank" rel="noopener">作成コーナーを開く ${svg('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>', 15, 2)}</a>
@@ -190,6 +203,16 @@ export function createPhase4(ctx) {
     all[year] = { ...(all[year] || {}), [key]: value };
     state.settings.transferDone = all;
     await db.saveSettings(state.settings);
+  }
+
+  async function onMemoInput(el) {
+    const year = state.taxYear;
+    const n = parseInt(String(el.value).normalize('NFKC').replace(/[^\d]/g, ''), 10);
+    const all = { ...(state.settings.deductionMemo || {}) };
+    all[year] = { ...(all[year] || {}), [el.dataset.dmemo]: Number.isFinite(n) ? n : 0 };
+    state.settings.deductionMemo = all;
+    await db.saveSettings(state.settings);
+    ctx.rerender();
   }
 
   const actions = {
@@ -211,5 +234,5 @@ export function createPhase4(ctx) {
     }
   };
 
-  return { views: { transfer: viewTransfer }, actions, balanceSheet, bsHtml, bsPrintHtml };
+  return { views: { transfer: viewTransfer }, actions, balanceSheet, bsHtml, bsPrintHtml, onMemoInput };
 }

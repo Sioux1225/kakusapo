@@ -10,7 +10,7 @@ export function createCtax(ctx) {
   const jp = (iso) => `${Number(iso.slice(0, 4))}年${Number(iso.slice(5, 7))}月${Number(iso.slice(8, 10))}日`;
 
   function result(year) {
-    return compareMethods({ year, receipts: state.receipts, sales: state.sales, assets: state.assets, filingType: state.settings.filingType });
+    return compareMethods({ year, receipts: state.receipts, sales: state.sales, assets: state.assets, filingType: state.settings.filingType, settings: state.settings });
   }
 
   // 申告の手順に加える行（登録している人だけ）

@@ -4,6 +4,7 @@ import { buildJournal, buildLedger, openingBalances, totals } from './journal.js
 import { CATEGORIES, categoryName } from './categories.js';
 import { saveFile, exportCsv as receiptsCsv } from './backup.js';
 import { businessAmount } from './format.js';
+import { expandReceipt } from './expenses.js';
 
 export function createPhase3(ctx) {
   const { state, svg, ICON, h, yen, num, segmented, toast } = ctx;
@@ -165,7 +166,7 @@ export function createPhase3(ctx) {
         <tr class="pr-total"><td></td><td>所得金額</td><td class="r">${num(f.income)}</td></tr>
       </tbody></table></section>`;
 
-    const recs = state.receipts.filter((r) => String(r.date).startsWith(String(year))).sort((a, c) => String(a.date).localeCompare(String(c.date)));
+    const recs = state.receipts.flatMap(expandReceipt).filter((r) => String(r.date).startsWith(String(year))).sort((a, c) => String(a.date).localeCompare(String(c.date)));
     const receipts = `<section class="pr-page">${head('領収書の一覧')}
       <table class="pr-table"><thead><tr><th>日付</th><th>支払先</th><th>勘定科目</th><th class="r">金額</th><th class="r">事業分</th><th>インボイス</th></tr></thead><tbody>
       ${recs.map((r) => `<tr><td>${md(r.date)}</td><td>${h(r.vendor)}${r.status !== 'confirmed' ? '（未確認）' : ''}</td><td>${h(categoryName(r.category))}</td><td class="r">${num(r.amount)}</td><td class="r">${num(businessAmount(r))}</td><td>${h(r.invoiceNo || '')}</td></tr>`).join('')}

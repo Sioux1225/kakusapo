@@ -1,5 +1,6 @@
 // バックアップ（JSON）・復元・CSV書き出し
 
+import { expandReceipt } from './expenses.js';
 import { db } from './db.js';
 import { CATEGORY_MAP, categoryName } from './categories.js';
 import { businessAmount } from './format.js';
@@ -101,6 +102,12 @@ export async function importBackup(file) {
     settings.vendorMap = { ...(data.settings.vendorMap || {}), ...settings.vendorMap };
     settings.phoneMap = { ...(data.settings.phoneMap || {}), ...settings.phoneMap };
     if (!settings.lastBackupAt) settings.lastBackupAt = data.exportedAt || null;
+    // 毎月の固定費・所得控除のメモ・走行距離（v0.6 以降）。このスマホにまだないものだけ戻す
+    const ids = new Set((settings.recurring || []).map((r) => r.id));
+    settings.recurring = [...(settings.recurring || []), ...(data.settings.recurring || []).filter((r) => !ids.has(r.id))];
+    settings.recurringDone = { ...(data.settings.recurringDone || {}), ...(settings.recurringDone || {}) };
+    settings.deductionMemo = { ...(data.settings.deductionMemo || {}), ...(settings.deductionMemo || {}) };
+    settings.mileage = { ...(data.settings.mileage || {}), ...(settings.mileage || {}) };
     await db.saveSettings(settings);
   }
   return { added, total: data.receipts.length };
@@ -118,10 +125,10 @@ export async function exportCsv(year) {
     const s = String(v == null ? '' : v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const rows = receipts.map((r) => [
+  const rows = receipts.flatMap(expandReceipt).map((r) => [
     r.date, r.vendor, r.amount, r.businessRatio, businessAmount(r), categoryName(r.category),
     CATEGORY_MAP[r.category] ? CATEGORY_MAP[r.category].blueNo : '', TAX_LABEL[r.taxRate] || '', r.taxAmount ?? '',
-    r.invoiceNo, PAY_LABEL[r.paymentMethod] || '', r.status === 'confirmed' ? '確定' : '未確認', r.memo
+    r.invoiceNo, PAY_LABEL[r.paymentMethod] || '', r.status === 'confirmed' ? '確定' : '未確認', r.parentId ? `${r.memo ? `${r.memo} ` : ''}（1枚の領収書を科目ごとに分けた分）` : r.memo
   ].map(cell).join(','));
   const csv = '﻿' + [head.join(','), ...rows].join('\r\n');
   return saveFile(new Blob([csv], { type: 'text/csv' }), `kakusapo-${year || 'all'}-${stamp()}.csv`);
