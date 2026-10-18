@@ -15,7 +15,7 @@
 import { CATEGORY_MAP } from './categories.js';
 import { schedule, methodOf } from './depreciation.js';
 import { businessAmount } from './format.js';
-import { expandReceipt, deductionTotal } from './expenses.js';
+import { expandReceipt, deductionTotal, DISCOUNT } from './expenses.js';
 
 // 借方が増えると残高が増える科目（資産・費用・事業主貸）。それ以外は貸方で増える
 const CREDIT_NORMAL = new Set(['売上', '事業主借', '元入金', '未払金']);
@@ -101,6 +101,11 @@ export function buildJournal({ year, receipts = [], sales = [], assets = [], set
       for (const d of s.deductions || []) {
         const v = Number(d.amount) || 0;
         if (!v || !d.category) continue;
+        // 差し引かれた消費税は売上の値引き（同じ月の入金なら、入金額の仕訳で差し引き済み）
+        if (d.category === DISCOUNT) {
+          if (!sameMonth) add(date, `${label}から消費税分の値引き`, '売上', '売掛金', v, { type: 'sale', id: s.id });
+          continue;
+        }
         const ratio = d.businessRatio ?? (settings.ratios || {})[d.category] ?? 100;
         const biz = businessAmount({ amount: v, businessRatio: ratio });
         const memo = `${label}から天引き${d.memo ? `：${d.memo}` : ''}${ratio < 100 ? `（事業分${ratio}%）` : ''}`;

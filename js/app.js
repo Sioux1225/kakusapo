@@ -13,7 +13,7 @@ import { createPhase4 } from './phase4.js';
 import { createCtax } from './ctax-view.js';
 import { createExtras } from './extras.js';
 
-export const APP_VERSION = '0.6.1';
+export const APP_VERSION = '0.6.2';
 
 const state = {
   receipts: [],

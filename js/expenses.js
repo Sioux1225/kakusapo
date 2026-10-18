@@ -27,13 +27,19 @@ export function expandReceipt(r) {
 // 売上から差し引かれた金額の合計
 export const deductionTotal = (sale) => (sale.deductions || []).reduce((t, d) => t + (Number(d.amount) || 0), 0);
 
+// 委託元が差し引いた消費税（インボイス未登録のため）は、経費ではなく売上の値引きとして扱う
+export const DISCOUNT = 'discount';
+export const salesDiscount = (sale) => (sale.deductions || []).filter((d) => d.category === DISCOUNT).reduce((t, d) => t + (Number(d.amount) || 0), 0);
+// 決算書・消費税の計算に使う売上（値引きを差し引いた金額）
+export const netSales = (sale) => (Number(sale.amount) || 0) - salesDiscount(sale);
+
 // 天引きの経費の明細（対象月の末日の経費として扱う）
 export function deductionItems(sales = [], ratios = {}) {
   const out = [];
   for (const s of sales) {
     (s.deductions || []).forEach((d, i) => {
       const amount = Number(d.amount) || 0;
-      if (!amount || !d.category) return;
+      if (!amount || !d.category || d.category === DISCOUNT) return;
       out.push({
         id: `ded-${s.id}-${i}`,
         source: 'deduction',

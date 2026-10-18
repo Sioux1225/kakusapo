@@ -3,7 +3,7 @@
 
 import { schedule, forYear, methodOf, lifeOf, METHOD_LABEL } from './depreciation.js';
 import { CATEGORIES, categoryName } from './categories.js';
-import { deductionTotal } from './expenses.js';
+import { deductionTotal, netSales, DISCOUNT } from './expenses.js';
 
 export function createPhase2(ctx) {
   const { state, svg, ICON, h, yen, num, segmented, nav, db, toast, newId, todayISO, longDate } = ctx;
@@ -12,7 +12,7 @@ export function createPhase2(ctx) {
   const isBlue = () => state.settings.filingType !== 'white';
   const deductionLimit = () => (isBlue() ? (Number(state.settings.deduction) === 10 ? 100000 : 650000) : 0);
   const salesOf = (year) => state.sales.filter((s) => String(s.month).startsWith(String(year)));
-  const salesTotal = (year) => salesOf(year).reduce((t, s) => t + (Number(s.amount) || 0), 0);
+  const salesTotal = (year) => salesOf(year).reduce((t, s) => t + netSales(s), 0);
   const depreciationOf = (year) => state.assets.reduce((t, a) => t + forYear(a, state.settings.filingType, year).expense, 0);
 
   function figures(year) {
@@ -230,7 +230,8 @@ export function createPhase2(ctx) {
     { label: 'ガソリン代', category: 'fuel' },
     { label: '事務手数料', category: 'fees' },
     { label: '車両リース代', category: 'lease' },
-    { label: '保険料', category: 'insurance' }
+    { label: '保険料', category: 'insurance' },
+    { label: '消費税', category: DISCOUNT }
   ];
   const dedValue = (x) => {
     const p = DEDUCTION_PRESETS.find((q) => q.label === x.memo && q.category === x.category);
@@ -254,7 +255,8 @@ export function createPhase2(ctx) {
         <div class="kv"><span>実際の入金額</span><b>${yen((Number(d.amount) || 0) - total)}</b></div>
       </div>` : ''}
       <button type="button" class="btn-small ghost" data-action="ded-add">＋ 天引きされた費用を追加</button>
-      ${list.length ? `<p class="muted small">仕事で使った割合は、${list[0].memo ? `${h(list[0].memo)}（${h(categoryName(list[0].category))}）` : h(categoryName(list[0].category))} ${list[0].businessRatio ?? state.settings.ratios[list[0].category] ?? 100}% のように、設定の初期値を使います。</p>` : ''}
+      ${list.some((x) => x.category === DISCOUNT) ? `<p class="muted small">差し引かれた消費税は、経費ではなく<b>売上から差し引いて</b>記録します（決算書の売上は差し引いた後の金額になります）。</p>` : ''}
+      ${list.length && list[0].category !== DISCOUNT ? `<p class="muted small">仕事で使った割合は、${list[0].memo ? `${h(list[0].memo)}（${h(categoryName(list[0].category))}）` : h(categoryName(list[0].category))} ${list[0].businessRatio ?? state.settings.ratios[list[0].category] ?? 100}% のように、設定の初期値を使います。</p>` : ''}
     </section>`;
   }
 

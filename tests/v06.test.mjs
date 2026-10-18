@@ -107,3 +107,20 @@ test('展開した明細をもう一度展開しても増えない', () => {
   const r = { id: 'a', date: '2026-05-10', amount: 3000, splits: [{ category: 'repair', amount: 2000 }, { category: 'taxes', amount: 1000 }] };
   assert.equal(expandReceipt(r).flatMap(expandReceipt).length, 2);
 });
+
+test('差し引かれた消費税は売上の値引き（経費にしない）', async () => {
+  const { netSales } = await import('../js/expenses.js');
+  const sale = { id: 's', month: '2026-04', date: '2026-05-10', amount: 330000, to: 'biz',
+    deductions: [{ category: 'discount', memo: '消費税', amount: 30000 }, { category: 'fuel', memo: 'ガソリン代', amount: 20000, businessRatio: 100 }] };
+  assert.equal(netSales(sale), 300000);
+  assert.equal(deductionItems([sale]).length, 1);
+  const j = buildJournal({ year: 2026, sales: [sale], settings: {} });
+  const ledger = buildLedger(j);
+  assert.equal(ledger.find((l) => l.account === '売上').closing, 300000);
+  assert.equal(ledger.find((l) => l.account === '売掛金').closing, 0);
+  assert.equal(j.find((e) => e.dr === '普通預金').amount, 280000);
+  const same = { ...sale, date: '2026-04-30' };
+  const l2 = buildLedger(buildJournal({ year: 2026, sales: [same], settings: {} }));
+  assert.equal(l2.find((l) => l.account === '売上').closing, 300000);
+  assert.equal(compareMethods({ year: 2026, sales: [sale] }).salesTotal, 300000);
+});

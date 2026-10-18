@@ -9,7 +9,7 @@
 // どれも「目安」。端数処理や地方消費税の計算は作成コーナーに任せる。売上・経費はどちらも税込で記録している前提。
 
 import { businessAmount } from './format.js';
-import { expenseItems } from './expenses.js';
+import { expenseItems, netSales } from './expenses.js';
 
 // 消費税がかからない経費の科目（税金・保険料）
 const NON_TAXABLE = new Set(['taxes', 'insurance']);
@@ -52,7 +52,7 @@ export function receiptInputTax(r) {
 // その年の計算
 export function compareMethods({ year, receipts = [], sales = [], assets = [], filingType, settings = {} }) {
   const yearSales = sales.filter((s) => String(s.month).startsWith(String(year)));
-  const salesTotal = yearSales.reduce((t, s) => t + (Number(s.amount) || 0), 0);
+  const salesTotal = yearSales.reduce((t, s) => t + netSales(s), 0);
   const outputTax = taxIn(salesTotal, 10);
 
   // 経費の消費税（一般課税）
