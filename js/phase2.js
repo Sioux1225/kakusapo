@@ -225,21 +225,36 @@ export function createPhase2(ctx) {
   }
 
   // 委託料から差し引かれた費用（車両リース代・保険料・燃料代・事務手数料など）
+  // 支払通知書によく出てくる天引きの項目（選ぶと科目が決まる）
+  const DEDUCTION_PRESETS = [
+    { label: 'ガソリン代', category: 'fuel' },
+    { label: '事務手数料', category: 'fees' },
+    { label: '車両リース代', category: 'lease' },
+    { label: '保険料', category: 'insurance' }
+  ];
+  const dedValue = (x) => {
+    const p = DEDUCTION_PRESETS.find((q) => q.label === x.memo && q.category === x.category);
+    return p ? `p:${p.label}` : `c:${x.category}`;
+  };
+
   function deductionEditor(d) {
     const list = d.deductions || [];
     const total = deductionTotal(d);
     return `<section class="section">
       <h2>委託料から天引きされた費用</h2>
-      <p class="muted small">支払通知書で、リース代・保険料・燃料代・手数料などが差し引かれている場合に入力します。経費として自動で記録します。</p>
+      <p class="muted small">支払通知書で、ガソリン代・事務手数料・リース代・保険料などが差し引かれている場合に入力します。経費として自動で記録します。</p>
       ${list.length ? `<div class="card split-box">${list.map((x, i) => `<div class="split-row">
-        <select data-ded="category" data-i="${i}" aria-label="${i + 1}行目の科目">${CATEGORIES.map((c) => `<option value="${c.id}"${x.category === c.id ? ' selected' : ''}>${h(c.name)}</option>`).join('')}</select>
+        <select data-ded="category" data-i="${i}" aria-label="${i + 1}行目の項目">
+          <optgroup label="よくある項目">${DEDUCTION_PRESETS.map((q) => `<option value="p:${h(q.label)}"${dedValue(x) === `p:${q.label}` ? ' selected' : ''}>${h(q.label)}</option>`).join('')}</optgroup>
+          <optgroup label="その他の科目">${CATEGORIES.map((c) => `<option value="c:${c.id}"${dedValue(x) === `c:${c.id}` ? ' selected' : ''}>${h(c.name)}</option>`).join('')}</optgroup>
+        </select>
         <span class="yen-input small"><input type="text" inputmode="numeric" data-ded="amount" data-i="${i}" value="${x.amount ? num(x.amount) : ''}" placeholder="0" aria-label="${i + 1}行目の金額"><span>円</span></span>
         <button type="button" class="icon-btn plain" data-action="ded-remove" data-value="${i}" aria-label="${i + 1}行目を削除">${svg(ICON.close, 16, 2)}</button>
       </div>`).join('')}
         <div class="kv"><span>実際の入金額</span><b>${yen((Number(d.amount) || 0) - total)}</b></div>
       </div>` : ''}
       <button type="button" class="btn-small ghost" data-action="ded-add">＋ 天引きされた費用を追加</button>
-      ${list.length ? `<p class="muted small">仕事で使った割合は、${h(categoryName(list[0].category))} ${list[0].businessRatio ?? state.settings.ratios[list[0].category] ?? 100}% のように、設定の初期値を使います。</p>` : ''}
+      ${list.length ? `<p class="muted small">仕事で使った割合は、${list[0].memo ? `${h(list[0].memo)}（${h(categoryName(list[0].category))}）` : h(categoryName(list[0].category))} ${list[0].businessRatio ?? state.settings.ratios[list[0].category] ?? 100}% のように、設定の初期値を使います。</p>` : ''}
     </section>`;
   }
 
@@ -371,7 +386,13 @@ export function createPhase2(ctx) {
     const row = d.deductions[Number(el.dataset.i)];
     if (!row) return;
     if (el.dataset.ded === 'amount') row.amount = toInt(el.value);
-    else { row.category = el.value; delete row.businessRatio; }
+    else {
+      const [kind, v] = [el.value.slice(0, 1), el.value.slice(2)];
+      const p = kind === 'p' && DEDUCTION_PRESETS.find((q) => q.label === v);
+      row.category = p ? p.category : v;
+      row.memo = p ? p.label : '';
+      delete row.businessRatio;
+    }
     d.touched = true;
   }
 
@@ -404,7 +425,7 @@ export function createPhase2(ctx) {
     'statement-view': (el) => { state.statementView = el.dataset.value; ctx.rerender(); },
     'ded-add': () => {
       const d = state.saleDraft;
-      d.deductions = [...(d.deductions || []), { category: 'lease', amount: 0 }];
+      d.deductions = [...(d.deductions || []), { category: 'fuel', memo: 'ガソリン代', amount: 0 }];
       ctx.rerender();
     },
     'ded-remove': (el) => { state.saleDraft.deductions.splice(Number(el.dataset.value), 1); ctx.rerender(); },
@@ -413,7 +434,7 @@ export function createPhase2(ctx) {
       const d = state.saleDraft;
       if (!/^\d{4}-\d{2}$/.test(d.month || '')) { toast('何月分の売上かを入力してください'); return; }
       if (!(d.amount > 0)) { toast('売上の金額を入力してください'); return; }
-      const deductions = (d.deductions || []).filter((x) => x.category && Number(x.amount) > 0).map((x) => ({ category: x.category, amount: Number(x.amount), businessRatio: x.businessRatio ?? state.settings.ratios[x.category] ?? 100 }));
+      const deductions = (d.deductions || []).filter((x) => x.category && Number(x.amount) > 0).map((x) => ({ category: x.category, memo: x.memo || '', amount: Number(x.amount), businessRatio: x.businessRatio ?? state.settings.ratios[x.category] ?? 100 }));
       if (deductions.reduce((t, x) => t + x.amount, 0) > d.amount) { toast('天引きの合計が売上の金額を超えています'); return; }
       const now = new Date().toISOString();
       await db.putSale({
